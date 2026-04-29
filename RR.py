@@ -10,12 +10,13 @@ class Process:
 
 def round_robin(processes, quantum): #프로세스 리스트를 받고, 타임 퀀텀 설정.
     time = 0
-    queue = deque() #double-ended queue
+    queue = deque()
     completed = []
-    n = len(processes)
+    ABT = []   # 간트차트 배열  
 
     processes.sort(key=lambda x: x.arrival)
-    i = 0  # 아직 큐에 안 들어온 프로세스 index
+    i = 0
+    n = len(processes)
 
     while len(completed) < n: #모든 프로세스가 완료될 때까지 반복 
 
@@ -25,15 +26,17 @@ def round_robin(processes, quantum): #프로세스 리스트를 받고, 타임 �
             i += 1
 
         if not queue:
+            ABT.append("idle")
             time += 1
             continue
 
-        current = queue.popleft() #큐에서 가장 앞 프로세스 꺼냄
+        current = queue.popleft() #큐에서 가장 앞 프로세스 꺼냄, 현재 CPU에서 실행할 프로세스
 
         #실행
         exec_time = min(quantum, current.remaining) #타임 퀀텀과 남은 실행시간 중 작은 값만큼 실행
 
         for _ in range(exec_time): #1초씩 실행
+            ABT.append(current.pid) #간트차트에 id 기록
             time += 1
             current.remaining -= 1
 
@@ -52,7 +55,7 @@ def round_robin(processes, quantum): #프로세스 리스트를 받고, 타임 �
         else:
             queue.append(current) #실행시간 남았으면 다시 큐로
 
-    return completed
+    return completed, ABT
 
 def print_completion_order(processes):
     print("\n[완료 순서]")
@@ -66,14 +69,29 @@ def print_result(processes):
         wt = tt - p.burst #Waiting Time(WT) = Turnaround Time - Burst Time
         print(f"P{p.pid} | TT={tt}, WT={wt}")
 
+def print_gantt_chart(ABT):
+    print("\n[Gantt Chart]")
+    
+    # 프로세스
+    for p in ABT:
+        print(f"| {p} ", end="")
+    print("|")
+    
+    # 시간
+    for t in range(len(ABT) + 1):
+        print(f"{t}".ljust(4), end="")
+    print()
 
 #프로세스 ID, 도착 시간, burst time 설정
-procs = [
-    Process(1, 0, 5), 
-    Process(2, 2, 8),
-    Process(3, 4, 6),
-]
+tasks = []
+tasks.append(Process(1, 0, 5))
+tasks.append(Process(2, 2, 8))
+tasks.append(Process(3, 4, 6))
+tasks.append(Process(4, 4, 2))
+tasks.append(Process(5, 5, 4))
 
-result = round_robin(procs, quantum=3)
+
+result, ABT = round_robin(tasks, quantum=3)
 print_result(result)
 print_completion_order(result)
+print_gantt_chart(ABT)
