@@ -23,17 +23,10 @@ def FCFS(task_list):
 
 #실행종료 시간 계산
 def CompletionTimeChecker(process, ABT_list):
-	completionTime=0
-	temp=process.burstTime
-
-	for idx, val in enumerate(ABT_list):
-		if(process.processID==val):
-			temp=temp-1
-			if(temp==0):
-				completionTime=idx+1
-				break
-
-	return completionTime
+	for i in range(len(ABT_list) - 1, -1, -1):
+		if ABT_list[i] == process.processID:
+			return i + 1
+	return 0
 
 #반환값 계산
 def Output(process, ABT_list):
