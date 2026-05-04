@@ -22,12 +22,12 @@ def FCFS(task_list):
 	return ABT
 
 #실행종료 시간 계산
-def CompletionTimeChecker(Process, ABT_list):
+def CompletionTimeChecker(process, ABT_list):
 	completionTime=0
-	temp=Process.burstTime
+	temp=process.burstTime
 
 	for idx, val in enumerate(ABT_list):
-		if(Process.processID==val):
+		if(process.processID==val):
 			temp=temp-1
 			if(temp==0):
 				completionTime=idx+1
@@ -36,11 +36,11 @@ def CompletionTimeChecker(Process, ABT_list):
 	return completionTime
 
 #반환값 계산
-def Output(Process, ABT_list):
-	completionTime=CompletionTimeChecker(Process, ABT_list)
-	turnaroundTime=completionTime-Process.arrivalTime
-	waitingTime=turnaroundTime-Process.burstTime
-	NTT=turnaroundTime/Process.burstTime
+def Output(process, ABT_list):
+	completionTime=CompletionTimeChecker(process, ABT_list)
+	turnaroundTime=completionTime-process.arrivalTime
+	waitingTime=turnaroundTime-process.burstTime
+	NTT=turnaroundTime/process.burstTime
 
 	return waitingTime, turnaroundTime, NTT
 
