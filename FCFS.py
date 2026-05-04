@@ -33,7 +33,7 @@ def Output(process, ABT_list):
 	completionTime=CompletionTimeChecker(process, ABT_list)
 	turnaroundTime=completionTime-process.arrivalTime
 	waitingTime=turnaroundTime-process.burstTime
-	NTT=turnaroundTime/process.burstTime
+	NTT=turnaroundTime/process.burstTime if process.burstTime > 0 else 0
 
 	return waitingTime, turnaroundTime, NTT
 
