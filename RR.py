@@ -9,12 +9,14 @@ class Process:
         self.finish_time = 0
 
 def round_robin(processes, quantum): #프로세스 리스트를 받고, 타임 퀀텀 설정.
+    if quantum <= 0:
+        raise ValueError("Quantum must be a positive integer.")
     time = 0
     queue = deque()
     completed = []
-    ABT = []   # 간트차트 배열  
+    gantt = []   # 간트차트 배열  
 
-    processes.sort(key=lambda x: x.arrival)
+    processes = sorted(processes, key=lambda x: x.arrival)
     i = 0
     n = len(processes)
 
@@ -26,7 +28,7 @@ def round_robin(processes, quantum): #프로세스 리스트를 받고, 타임 �
             i += 1
 
         if not queue:
-            ABT.append("idle")
+            gantt.append("idle")
             time += 1
             continue
 
@@ -36,7 +38,7 @@ def round_robin(processes, quantum): #프로세스 리스트를 받고, 타임 �
         exec_time = min(quantum, current.remaining) #타임 퀀텀과 남은 실행시간 중 작은 값만큼 실행
 
         for _ in range(exec_time): #1초씩 실행
-            ABT.append(current.pid) #간트차트에 id 기록
+            gantt.append(current.pid) #간트차트에 id 기록
             time += 1
             current.remaining -= 1
 
@@ -55,7 +57,7 @@ def round_robin(processes, quantum): #프로세스 리스트를 받고, 타임 �
         else:
             queue.append(current) #실행시간 남았으면 다시 큐로
 
-    return completed, ABT
+    return completed, gantt
 
 def print_completion_order(processes):
     print("\n[완료 순서]")
@@ -69,18 +71,17 @@ def print_result(processes):
         wt = tt - p.burst #Waiting Time(WT) = Turnaround Time - Burst Time
         print(f"P{p.pid} | TT={tt}, WT={wt}")
 
-def print_gantt_chart(ABT):
+def print_gantt_chart(gantt):
     print("\n[Gantt Chart]")
     
-    # 프로세스
-    for p in ABT:
-        print(f"| {p} ", end="")
+     # 프로세스
+    for p in gantt:
+        print(f"| {str(p).center(6)} ", end="")
     print("|")
     
     # 시간
-    for t in range(len(ABT) + 1):
-        print(f"{t}".ljust(4), end="")
-    print()
+    for t in range(len(gantt) + 1):
+        print(f"{t}".ljust(9), end="")
 
 #프로세스 ID, 도착 시간, burst time 설정
 tasks = []
@@ -91,7 +92,7 @@ tasks.append(Process(4, 4, 2))
 tasks.append(Process(5, 5, 4))
 
 
-result, ABT = round_robin(tasks, quantum=3)
+result, gantt = round_robin(tasks, quantum=3)
 print_result(result)
 print_completion_order(result)
-print_gantt_chart(ABT)
+print_gantt_chart(gantt)
