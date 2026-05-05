@@ -69,7 +69,9 @@ def print_result(processes):
     for p in processes:
         tt = p.finish_time - p.arrival #Turnaround Time(TT) = Finish Time - Arrival Time
         wt = tt - p.burst #Waiting Time(WT) = Turnaround Time - Burst Time
-        print(f"P{p.pid} | TT={tt}, WT={wt}")
+        ntt = tt / p.burst #NTT
+        
+        print(f"P{p.pid} | TT={tt}, WT={wt}, NTT={ntt:.2f}")
 
 def print_gantt_chart(gantt):
     print("\n[Gantt Chart]")
