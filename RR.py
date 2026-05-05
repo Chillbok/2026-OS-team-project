@@ -84,16 +84,17 @@ def print_gantt_chart(gantt):
         print(f"{t}".ljust(4), end="")
     print()
 
-#프로세스 ID, 도착 시간, burst time 설정
-tasks = []
-tasks.append(Process(1, 0, 5))
-tasks.append(Process(2, 2, 8))
-tasks.append(Process(3, 4, 6))
-tasks.append(Process(4, 4, 2))
-tasks.append(Process(5, 5, 4))
+if __name__ == "__main__":
+    # 프로세스 ID, 도착 시간, burst time 설정
+    tasks = [
+        Process(1, 0, 5),
+        Process(2, 2, 8),
+        Process(3, 4, 6),
+        Process(4, 4, 2),
+        Process(5, 5, 4)
+    ]
 
-
-result, gantt = round_robin(tasks, quantum=3)
-print_result(result)
-print_completion_order(result)
-print_gantt_chart(gantt)
+    result, gantt = round_robin(tasks, quantum=3)
+    print_result(result)
+    print_completion_order(result)
+    print_gantt_chart(gantt)
