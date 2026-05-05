@@ -1,0 +1,211 @@
+def is_emergency(task):
+    return task.task_type in ["EMERGENCY_BRAKE", "AIRBAG", "ABS"]
+
+
+def is_control(task):
+    return task.task_type in ["ENGINE", "STEERING", "LANE_KEEP", "COLLISION_AVOID"]
+
+
+PRIORITY = {
+    "EMERGENCY_BRAKE": 0, "AIRBAG": 1, "ABS": 2,
+    "ENGINE": 3, "STEERING": 4, "LANE_KEEP": 5, "COLLISION_AVOID": 6,
+    "BATTERY": 7, "COOLANT": 8, "TPMS": 9, "OBD": 10,
+    "GPS": 11, "AC": 12, "INFOTAINMENT": 13, "DASHCAM": 14,
+}
+
+
+class Process:
+    def __init__(self, pid, arrival, burst, task_type):
+        self.pid = pid
+        self.arrival = arrival
+        self.burst = burst
+        self.remaining = burst
+        self.task_type = task_type
+        self.finish_time = 0
+        self.priority = PRIORITY[task_type]
+
+
+class Core:
+    def __init__(self, name, role, power, performance):
+        self.name = name
+        self.role = role
+        self.current = None
+        self.power = power
+        self.performance = performance
+
+
+def preempt(current, incoming):
+    """더 높은 우선순위(숫자 작음)일 때만 선점"""
+    return incoming.priority < current.priority
+
+
+
+# [주차 모드 추가] mode 인자를 통해 DRIVING / PARKING 구분
+
+def scheduler(processes, mode="DRIVING"):
+    if len(processes) > 15:
+        raise ValueError("최대 15개 제한")
+
+    time = 0
+    completed = []
+
+    emergency_q = []
+    control_q = []
+    normal_q = []
+
+    cores = [
+        Core("P0", "EMERGENCY", power=3, performance=2),
+        Core("P1", "CONTROL", power=3, performance=2),
+        Core("E0", "NORMAL", power=1, performance=1),
+        Core("E1", "NORMAL", power=1, performance=1),
+    ]
+
+    gantt = {c.name: [] for c in cores}
+    total_power = 0
+
+
+    # [주차 모드 전처리] 주차 모드일 경우 허용된 작업(배터리, 블랙박스)만 남김
+
+    allowed_parking_tasks = ["BATTERY", "DASHCAM"]
+
+    if mode == "PARKING":
+        for p in processes:
+            # 주차 모드에서 불필요한 작업은 시작 전에 완료 처리하여 루프에서 제외
+            if p.task_type not in allowed_parking_tasks:
+                p.remaining = 0
+                completed.append(p)
+
+    # 메인 스케줄링 루프
+    while len(completed) < len(processes):
+
+        # 1. 프로세스 큐 분배
+        for p in processes:
+            if p.arrival == time and p.remaining > 0:  # 남은 시간이 있는 것만 큐에 진입
+                if is_emergency(p):
+                    emergency_q.append(p)
+                elif is_control(p):
+                    control_q.append(p)
+                else:
+                    normal_q.append(p)
+
+        # 2. 선점 검사 (코어 역할 충돌 방지)
+        for core in cores:
+            if not core.current: continue
+
+            # [주차 모드] P코어는 선점 검사 제외
+            if mode == "PARKING" and core.role in ["EMERGENCY", "CONTROL"]:
+                continue
+
+            candidates = []
+            # 코어의 역할에 맞는 큐에서만 선점 후보를 찾음
+            if core.role == "EMERGENCY":
+                candidates.extend(emergency_q)
+            elif core.role == "CONTROL":
+                candidates.extend(control_q)
+            elif core.role == "NORMAL":
+                candidates.extend(normal_q)
+
+            if not candidates: continue
+
+            #  1순위: priority, 2순위: remaining (남은 시간이 짧은 것 우선)
+            best = min(candidates, key=lambda x: (x.priority, x.remaining))
+
+            if preempt(core.current, best):
+                if is_emergency(core.current):
+                    emergency_q.append(core.current)
+                elif is_control(core.current):
+                    control_q.append(core.current)
+                else:
+                    normal_q.append(core.current)
+                core.current = None
+
+        # 3. 비어있는 코어에 작업 할당
+        for core in cores:
+            if core.current: continue
+
+            #  주차 모드일 경우 P-Core(긴급, 제어)는 작업 할당 금지
+            if mode == "PARKING" and core.role in ["EMERGENCY", "CONTROL"]:
+                continue
+
+            # [SRTN 보완] 큐에서 뽑을 때도 priority와 remaining 둘 다 고려
+            if core.role == "EMERGENCY" and emergency_q:
+                best = min(emergency_q, key=lambda x: (x.priority, x.remaining))
+                emergency_q.remove(best)
+                core.current = best
+
+            elif core.role == "CONTROL":
+                if control_q:
+                    best = min(control_q, key=lambda x: (x.priority, x.remaining))
+                    control_q.remove(best)
+                    core.current = best
+                elif emergency_q:  # 제어 코어에서 긴급 큐 백업
+                    best = min(emergency_q, key=lambda x: (x.priority, x.remaining))
+                    emergency_q.remove(best)
+                    core.current = best
+
+            elif core.role == "NORMAL" and normal_q:
+                best = min(normal_q, key=lambda x: (x.priority, x.remaining))
+                normal_q.remove(best)
+                core.current = best
+
+        # 4. 성능 기반 1 tick 실행 및 전력 기록
+        for core in cores:
+            #  전원 차단된 코어는 "OFF" 기록 및 전력 소비 0
+            if mode == "PARKING" and core.role in ["EMERGENCY", "CONTROL"]:
+                gantt[core.name].append("OFF ")
+                continue
+
+            if core.current:
+                # P코어는 2씩, E코어는 1씩 차감 (음수 방지 로직 포함)
+                core.current.remaining -= min(core.current.remaining, core.performance)
+                gantt[core.name].append(core.current.pid.ljust(4))
+                total_power += core.power
+
+                if core.current.remaining <= 0:
+                    core.current.finish_time = time + 1
+                    completed.append(core.current)
+                    core.current = None
+            else:
+                gantt[core.name].append("idle")
+
+        time += 1
+
+    return gantt, total_power
+
+
+def print_gantt(gantt, title):
+    print(f"\n[{title} 간트 차트]")
+    for core, timeline in gantt.items():
+        print(f"{core}: ", end="")
+        for t in timeline:
+            print(f"|{t}", end="")
+        print("|")
+
+
+# ============================================================================
+# 테스트 케이스 실행
+# ============================================================================
+if __name__ == "__main__":
+    def create_test_tasks():
+        return [
+            Process("P1", 5, 4, "EMERGENCY_BRAKE"), Process("P2", 5, 2, "AIRBAG"), Process("P3", 5, 4, "ABS"),
+            Process("P4", 0, 6, "ENGINE"), Process("P5", 0, 5, "STEERING"), Process("P6", 2, 7, "LANE_KEEP"),
+            Process("P7", 3, 6, "COLLISION_AVOID"),
+            Process("P8", 1, 8, "TPMS"), Process("P9", 0, 6, "BATTERY"), Process("P10", 2, 5, "COOLANT"),
+            Process("P11", 4, 10, "OBD"),
+            Process("P12", 0, 9, "GPS"), Process("P13", 0, 12, "DASHCAM"), Process("P14", 6, 8, "AC"),
+            Process("P15", 7, 11, "INFOTAINMENT"),
+        ]
+
+
+    # 1. 주행 모드 테스트
+    tasks_driving = create_test_tasks()
+    gantt_driving, power_driving = scheduler(tasks_driving, mode="DRIVING")
+    print_gantt(gantt_driving, "주행 모드 (DRIVING)")
+    print(f"▶ 총 전력 소비 (주행): {power_driving} W")
+
+    # 2. 주차 모드 테스트
+    tasks_parking = create_test_tasks()
+    gantt_parking, power_parking = scheduler(tasks_parking, mode="PARKING")
+    print_gantt(gantt_parking, "주차 모드 (PARKING)")
+    print(f"▶ 총 전력 소비 (주차): {power_parking} W")
