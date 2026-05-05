@@ -9,6 +9,8 @@ class Process:
         self.finish_time = 0
 
 def round_robin(processes, quantum): #프로세스 리스트를 받고, 타임 퀀텀 설정.
+    if quantum <= 0:
+        raise ValueError("Quantum must be a positive integer.")
     time = 0
     queue = deque()
     completed = []
