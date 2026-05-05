@@ -16,7 +16,7 @@ def round_robin(processes, quantum): #프로세스 리스트를 받고, 타임 �
     completed = []
     gantt = []   # 간트차트 배열  
 
-    processes.sort(key=lambda x: x.arrival)
+    processes = sorted(processes, key=lambda x: x.arrival)
     i = 0
     n = len(processes)
 
