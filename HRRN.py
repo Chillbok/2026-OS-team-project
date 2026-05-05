@@ -71,7 +71,8 @@ def print_result(processes, gantt):
     for p in processes:
         tt = p.finish_time - p.arrival # turnaround time 계산
         wt = tt - p.burst # waiting time 계산
-        print(f"{p.pid}: WT={wt}, TT={tt}")
+        ntt = tt / p.burst #NTT
+        print(f"{p.pid}: WT={wt}, TT={tt}, NTT={ntt:.2f}")
 
 
 # 테스트
