@@ -119,14 +119,14 @@ def scheduler(processes):
                 core.current = best
 
             elif core.role == "CONTROL":
-                if control_q:
-                    best = min(control_q, key=lambda x: x.priority)
-                    control_q.remove(best)
-                    core.current = best
-
-                elif emergency_q:
+                # 우선순위가 더 높은 EMERGENCY 작업을 먼저 확인
+                if emergency_q:
                     best = min(emergency_q, key=lambda x: x.priority)
                     emergency_q.remove(best)
+                    core.current = best
+                elif control_q:
+                    best = min(control_q, key=lambda x: x.priority)
+                    control_q.remove(best)
                     core.current = best
 
             elif core.role == "NORMAL":
