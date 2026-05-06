@@ -33,12 +33,14 @@ class Process:
         self.priority = PRIORITY[task_type]
 
 class Core:
-    def __init__(self, name, role, power, performance):
+    def __init__(self, name, role, power, performance, start_power):
         self.name = name
         self.role = role  # EMERGENCY / CONTROL / NORMAL
         self.current = None # 현재 실행 중인 프로세스
         self.power = power # 전력
         self.performance = performance # 일 하는 양
+        self.start_power = start_power
+        self.was_idle = True
 
 def preempt(current, incoming):
     # 더 높은 우선순위(숫자 작음)일 때만 선점
@@ -59,10 +61,10 @@ def scheduler(processes):
 
     # 코어 정의. P2: 긴급 전용, P1: 제어 전용, E1/E2: 일반
     cores = [
-        Core("P2", "EMERGENCY", power=3, performance=2), #전력 3 작업량 2
-        Core("P1", "CONTROL", power=3, performance=2),
-        Core("E1", "NORMAL", power=1, performance=1), #전력 1 작업량 1
-        Core("E2", "NORMAL", power=1, performance=1),
+        Core("P2", "EMERGENCY", power=3, performance=2, start_power = 2), #전력 3 작업량 2
+        Core("P1", "CONTROL", power=3, performance=2, start_power = 2),
+        Core("E1", "NORMAL", power=1, performance=1, start_power = 1), #전력 1 작업량 1
+        Core("E2", "NORMAL", power=1, performance=1, start_power = 1),
     ]
 
     gantt = {c.name: [] for c in cores}
@@ -139,11 +141,16 @@ def scheduler(processes):
         # 성능 기반 시간 처리 실행
         for core in cores:
             if core.current:
+                
+                #시동 전력 + 작업 전력
+                if core.was_idle:
+                    total_power += core.start_power
+                total_power += core.power
+                core.was_idle = False
 
                 core.current.remaining -= core.performance
 
                 gantt[core.name].append(core.current.pid)
-                total_power += core.power
 
                 if core.current.remaining <= 0:
                     core.current.finish_time = time + 1
@@ -151,7 +158,7 @@ def scheduler(processes):
                     core.current = None
             else:
                 gantt[core.name].append("idle")
-
+                core.was_idle = True
         time += 1
 
     return gantt, processes, total_power
