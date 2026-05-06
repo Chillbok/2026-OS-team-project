@@ -1,0 +1,80 @@
+import tkinter as tk
+
+# ============================================================================
+# 외부 라이브러리(matplotlib) 없이 순수 파이썬 내장 모듈로만 그리는 GUI
+# ============================================================================
+def draw_gantt_chart_tk(gantt_dict, title="자율주행 하이브리드 스케줄러 간트 차트"):
+    root = tk.Tk()
+    root.title(title)
+    
+    # 캔버스 크기 및 여백 설정
+    canvas_width = 900
+    canvas_height = 400
+    margin_x = 100
+    margin_y = 50
+    
+    canvas = tk.Canvas(root, width=canvas_width, height=canvas_height, bg="white")
+    canvas.pack(padx=20, pady=20)
+    
+    cores = list(gantt_dict.keys())
+    row_height = 60
+    tick_width = 30 # 1초당 픽셀 너비
+    
+    # 색상 팔레트
+    color_palette = ["#FF9999", "#66B2FF", "#99FF99", "#FFCC99", "#FF99CC", "#99CCFF", "#FFFF99", "#CC99FF"]
+    process_colors = {}
+    color_idx = 0
+    
+    # 코어 이름(y축) 및 눈금(x축) 그리기
+    for i, core in enumerate(cores):
+        y_pos = margin_y + (i * row_height)
+        canvas.create_text(margin_x - 10, y_pos + row_height/2, text=core, anchor="e", font=("Arial", 12, "bold"))
+        
+        timeline = gantt_dict[core]
+        if not timeline: continue
+        
+        current_task = timeline[0].strip()
+        start_time = 0
+        
+        # x축 시간 눈금 
+        if i == 0:
+            for t in range(len(timeline) + 1):
+                x_pos = margin_x + (t * tick_width)
+                canvas.create_text(x_pos, margin_y - 10, text=str(t), font=("Arial", 10))
+                canvas.create_line(x_pos, margin_y, x_pos, canvas_height - margin_y, fill="#EEEEEE", dash=(4, 4))
+
+        # 연속된 작업 묶어서 막대 그리기
+        for t in range(1, len(timeline) + 1):
+            task = timeline[t].strip() if t < len(timeline) else None
+            
+            if task != current_task:
+                duration = t - start_time
+                x_start = margin_x + (start_time * tick_width)
+                x_end = margin_x + (t * tick_width)
+                y_start = y_pos + 10
+                y_end = y_pos + row_height - 10
+                
+                # 색상 및 스타일 결정
+                if current_task == "idle":
+                    bg_color, text_color = "#F0F0F0", "#AAAAAA"
+                elif current_task == "OFF":
+                    bg_color, text_color = "#555555", "#FFFFFF"
+                else:
+                    if current_task not in process_colors:
+                        process_colors[current_task] = color_palette[color_idx % len(color_palette)]
+                        color_idx += 1
+                    bg_color, text_color = process_colors[current_task], "#000000"
+                
+                # 막대 사각형 그리기
+                canvas.create_rectangle(x_start, y_start, x_end, y_end, fill=bg_color, outline="black")
+                
+                # 중앙 텍스트 넣기
+                if current_task not in ["idle", "OFF"]:
+                    canvas.create_text((x_start + x_end)/2, (y_start + y_end)/2, text=current_task, fill=text_color, font=("Arial", 10, "bold"))
+                elif current_task == "OFF" and duration > 2:
+                    canvas.create_text((x_start + x_end)/2, (y_start + y_end)/2, text="Deep Sleep", fill=text_color, font=("Arial", 10, "italic"))
+                
+                start_time = t
+                current_task = task
+
+    root.mainloop()
