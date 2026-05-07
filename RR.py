@@ -76,12 +76,12 @@ def print_gantt_chart(gantt):
     
      # 프로세스
     for p in gantt:
-        print(f"| {str(p).center(6)} ", end="")
+        print(f"| {str(p)} ", end="")
     print("|")
     
     # 시간
     for t in range(len(gantt) + 1):
-        print(f"{t}".ljust(9), end="")
+        print(f"{t}".ljust(4), end="")
 
 #프로세스 ID, 도착 시간, burst time 설정
 tasks = []
