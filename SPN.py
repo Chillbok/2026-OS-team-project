@@ -1,61 +1,105 @@
-# 프로세스 객체 클래스
 class Process:
-    def __init__(self, processID, arrivalTime, burstTime):
-        self.processID = processID
-        self.arrivalTime = arrivalTime
-        self.burstTime = burstTime
-        self.isCompleted = False # 작업 완료 상태 체크용
+    def __init__(self, pid, arrival, burst):
+        self.pid = pid  
+        self.arrival = arrival  
+        self.burst = burst  
+        self.remaining = burst  # P/E 코어 성능 차감을 위한 변수
+        self.start_time = 0 
+        self.finish_time = 0 
 
-# SPN 스케줄링 알고리즘 모듈
-def run_spn_scheduler(task_list):
-    """
-    SPN 스케줄링 알고리즘을 실행하고 타임라인(ABT)을 반환합니다.
-    """
-    ABT = []
-    current_time = 0
-    completed_processes = 0
-    total_processes = len(task_list)
+class Core:
+    def __init__(self, name, performance, run_power, wake_power):
+        self.name = name
+        self.performance = performance  # P코어=2, E코어=1
+        self.run_power = run_power      
+        self.wake_power = wake_power    
+        self.current = None  
+        self.was_idle = True 
 
-    while completed_processes < total_processes:
-        # 1. 현재 시간 기준으로 도착했고, 아직 완료되지 않은 프로세스들 찾기
-        ready_queue = [p for p in task_list if p.arrivalTime <= current_time and not p.isCompleted]
-        
-        if not ready_queue:
-            # 2. 실행할 프로세스가 없는경우
-            ABT.append("IDLE")
-            current_time += 1
-        else:
-            # 3. 대기열 중에서 실행 시간(Burst Time)이 가장 짧은 프로세스 선택 (SPN 로직)
-            shortest_process = min(ready_queue, key=lambda x: x.burstTime)
-            
-            # 4 선택된 프로세스를 실행 시간만큼 ABT 리스트에 채워 넣기 간트차트 그리기용
-            for _ in range(shortest_process.burstTime):
-                ABT.append(shortest_process.processID)
+def create_cores(p_count, e_count):
+    cores = []
+    for i in range(p_count):
+        cores.append(Core(name=f"P-Core {i}", performance=2, run_power=2, wake_power=2))
+    for i in range(e_count):
+        cores.append(Core(name=f"E-Core {i}", performance=1, run_power=1, wake_power=1))
+    return cores
+
+def SPN_multi_core(processes, p_count, e_count):
+    time = 0 
+    completed = []
+    processes.sort(key=lambda x: x.arrival)
+    ready_queue = []
+
+    i = 0
+    n = len(processes)
+    total_power = 0
+    cores = create_cores(p_count, e_count)
+
+    gantt = {core.name: [] for core in cores}
+
+    while len(completed) < n:
+        # 1. 도착한 프로세스를 대기열에 추가
+        while i < n and processes[i].arrival <= time:
+            ready_queue.append(processes[i])
+            i += 1
+
+        for core in cores:
+            # 2. 작업 할당 (비선점형: 코어가 비어있을 때만)
+            if core.current is None and ready_queue:
+                # SPN 로직: Burst Time이 가장 짧은 프로세스 선택
+                best = min(ready_queue, key=lambda x: x.burst)
+                ready_queue.remove(best)
+                core.current = best
+                if best.start_time == 0:
+                    best.start_time = time
+
+            # 3. 코어 실행 및 전력/성능 계산
+            if core.current:
+                if core.was_idle:
+                    total_power += core.wake_power # 시동 전력
+                total_power += core.run_power      # 유지 전력
+                core.was_idle = False
+
+                # P/E 코어의 성능만큼 작업량 감소
+                core.current.remaining -= core.performance
+                gantt[core.name].append(core.current.pid)
+
+                # 작업 종료 체크
+                if core.current.remaining <= 0:
+                    core.current.finish_time = time + 1
+                    completed.append(core.current)
+                    core.current = None
+            else:
+                gantt[core.name].append("idle")
+                core.was_idle = True
                 
-            # 시간 점프 및 완료 처리
-            current_time += shortest_process.burstTime
-            shortest_process.isCompleted = True
-            completed_processes += 1
+        time += 1
 
-    return ABT
+    return completed, gantt, total_power
 
-# 결과 계산용 함수
-def CompletionTimeChecker(Process_obj, ABT_list):
-    completionTime = 0
-    temp = Process_obj.burstTime
+def print_result(processes, gantt, total_power, algo_name="SPN"):
+    print(f"\n[{algo_name} 간트 차트]")
+    for core, timeline in gantt.items():
+        print(f"{core.ljust(10)}: ", end="")
+        for t in timeline:
+            print(f"|{str(t).center(4)}", end="")
+        print("|")
 
-    for idx, val in enumerate(ABT_list):
-        if Process_obj.processID == val:
-            temp = temp - 1
-            if temp == 0:
-                completionTime = idx + 1
-                break
+    print(f"\n[{algo_name} 결과 요약]")
+    for p in processes:
+        tt = p.finish_time - p.arrival
+        wt = tt - p.burst
+        ntt = tt / p.burst if p.burst > 0 else 0
+        print(f"[{p.pid}] WT: {wt}, TT: {tt}, NTT: {ntt:.2f}")
+    print(f"▶ 총 소비전력: {total_power}W")
 
-    return completionTime
-
-def Output(Process_obj, ABT_list):
-    completionTime = CompletionTimeChecker(Process_obj, ABT_list)
-    turnaroundTime = completionTime - Process_obj.arrivalTime
-    waitingTime = turnaroundTime - Process_obj.burstTime
-
-    return turnaroundTime, waitingTime, NTT
+# ==========================================
+# 실행 테스트
+# ==========================================
+if __name__ == "__main__":
+    tasks = [
+        Process("P1", 0, 7), Process("P2", 1, 6), Process("P3", 2, 4),
+        Process("P4", 3, 3), Process("P5", 5, 6), Process("P6", 7, 2)
+    ]
+    completed, gantt, power = SPN_multi_core(tasks, p_count=2, e_count=2)
+    print_result(completed, gantt, power, "SPN")
