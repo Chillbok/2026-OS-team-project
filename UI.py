@@ -113,14 +113,53 @@ tk.Label(input_frame, text="Burst Time").pack()
 burst_entry = tk.Entry(input_frame)
 burst_entry.pack(fill="x")
 
+def add_process():
+
+    pid = pid_entry.get()
+    arrival = arrival_entry.get()
+    burst = burst_entry.get()
+
+    # 빈칸 체크
+    if not pid or not arrival or not burst:
+        return
+
+    # 숫자 변환 예외 처리
+    try:
+        arrival = int(arrival)
+        burst = int(burst)
+
+    except ValueError:
+        return
+
+    # 데이터 저장
+    process_data.append({
+        "pid": pid,
+        "arrival": arrival,
+        "burst": burst
+    })
+
+    # Treeview 추가
+    process_table.insert(
+        "",
+        "end",
+        values=(pid, arrival, burst)
+    )
+
+    # 입력창 초기화
+    pid_entry.delete(0, tk.END)
+    arrival_entry.delete(0, tk.END)
+    burst_entry.delete(0, tk.END)
+
+# 우측 패널
+
 add_button = tk.Button(
     input_frame,
-    text="Add"
+    text="Add",
+    command=add_process
 )
 
 add_button.pack(fill="x", pady=5)
 
-# 우측 패널
 
 right_frame = tk.Frame(main_frame)
 right_frame.pack(side="left", fill="both", expand=True)
