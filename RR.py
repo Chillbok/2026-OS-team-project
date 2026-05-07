@@ -122,7 +122,7 @@ def round_robin_multi_core(processes, quantum, p_count, e_count):
                     core.current = None
 
             else:
-                gantt[core.name].append("0")
+                gantt[core.name].append(0)
                 core.was_idle = True
 
         time += 1
