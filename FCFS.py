@@ -1,39 +1,131 @@
-﻿class Process:
-	def __init__(self, processID, arrivalTime, burstTime):
-		self.processID=processID
-		self.arrivalTime=arrivalTime
-		self.burstTime=burstTime
+﻿class Core:
+    def __init__(
+        self,
+        name,
+        performance,
+        run_power,
+        wake_power
+    ):
+
+        self.name = name
+
+        # 성능
+        self.performance = performance # 1이면 E-Core, 2면 P-Core
+        self.run_power = run_power
+        self.wake_power = wake_power
+        self.current = None
+		
+        # RR quantum
+        self.time_slice = 0
+
+        # 이전 tick 활성 상태
+        self.was_idle = True
+
+def create_cores(p_count, e_count):
+
+    cores = []
+
+    for i in range(p_count):
+        cores.append(
+            Core(
+                name=f"P-Core {i}",
+                performance=2,
+                run_power=3,
+                wake_power=0.5
+            )
+        )
+
+    for i in range(e_count):
+        cores.append(
+            Core(
+                name=f"E-Core {i}",
+                performance=1,
+                run_power=1,
+                wake_power=0.1
+            )
+        )
+
+    return cores
+
+class Process:
+	def __init__(self, pid, arrival, burst):
+		self.pid=pid
+		self.arrival=arrival
+		self.burst=burst
+		self.remaining=burst
+		self.finish_time = 0
+
 
 #간트차트 그리기
-def FCFS(task_list):
-	task_list.sort(key=lambda x: x.arrivalTime)
+def FCFS_multi_core(processes, p_count, e_count):
+	time = 0
+	arrived = []
+	completed = []
+	cores = create_cores(p_count, e_count)
+	total_power = 0
 
-	ABT = []#간트차트 그리는 배열
-	currentTime = 0
-	for i in task_list:
-		while(currentTime < i.arrivalTime):
-			ABT.append("idle")
-			currentTime +=1
+	processes.sort(key=lambda x: x.arrival)
+	i = 0
 
-		for j in range(i.burstTime):
-			ABT.append(i.processID)
-			currentTime +=1
+	gantt = {}#간트차트 그리는 딕셔너리
+	for core in cores:  
+		gantt[core.name] = []
 
-	return ABT
+	
+	while len(completed) < len(processes):
+
+		while i < len(processes) and processes[i].arrival <= time:
+			arrived.append(processes[i])
+			i += 1
+
+		for core in cores:
+			if not core.current and arrived:
+				core.current = arrived.pop(0)
+			
+			if core.current:
+				if core.was_idle:
+					total_power += core.wake_power
+				total_power += core.run_power
+				core.was_idle = False
+
+				for _ in range(core.performance):#성능만큼 실행
+					if core.current.remaining <= 0:
+						break
+					
+					core.current.remaining -= 1
+
+				gantt[core.name].append(core.current.pid)
+				
+				# 완료 체크
+				if core.current.remaining == 0:
+					core.current.finish_time = time + 1
+					completed.append(core.current)
+					core.current = None
+
+			else:
+				gantt[core.name].append(0)
+				core.was_idle = True
+				
+		time +=1
+
+	return completed, gantt, total_power
 
 #실행종료 시간 계산
-def CompletionTimeChecker(process, ABT_list):
-	for i in range(len(ABT_list) - 1, -1, -1):
-		if ABT_list[i] == process.processID:
-			return i + 1
-	return 0
+def CompletionTimeChecker(process, gantt):
+	temp = 0
+	for key in gantt:
+		for item in range(len(gantt[key]) - 1, -1, -1):
+			if gantt[key][item] == process.pid:
+				temp = max(temp, item + 1)
+				break
+	return temp
 
 #반환값 계산
-def Output(process, ABT_list):
-	completionTime=CompletionTimeChecker(process, ABT_list)
-	turnaroundTime=completionTime-process.arrivalTime
-	waitingTime=turnaroundTime-process.burstTime
-	NTT=turnaroundTime/process.burstTime if process.burstTime > 0 else 0
+def Output(process, gantt):
+	completionTime=CompletionTimeChecker(process, gantt)
+	turnaroundTime=completionTime-process.arrival
+	waitingTime=turnaroundTime-process.burst
+	NTT=turnaroundTime/process.burst if process.burst > 0 else 0
 
 	return waitingTime, turnaroundTime, NTT
 
@@ -41,35 +133,31 @@ def Output(process, ABT_list):
 동작확인
 '''
 tasks = []
-ABT = []
+gantt = []
 
-tasks.append(Process("P1",0,3))
-tasks.append(Process("P2",1,7))
-tasks.append(Process("P3",3,2))
-tasks.append(Process("P4",5,5))
-tasks.append(Process("P5",6,3))
+tasks.append(Process(1,0,3))
+tasks.append(Process(2,1,7))
+tasks.append(Process(3,3,2))
+tasks.append(Process(4,5,5))
+tasks.append(Process(5,6,3))
 
-tasks.sort(key=lambda x: x.arrivalTime)
+tasks.sort(key=lambda x: x.arrival)
 
 # FCFS 실행 결과로 ABT 생성
-ABT = FCFS(tasks)
+completed, gantt, total_power = FCFS_multi_core(tasks, p_count=2, e_count=2)
 
 for i in tasks:
-    WT, TT, NTT = Output(i, ABT)
-    print(f"{i.processID}의 WT:{WT}, TT:{TT}, NTT:{NTT}")
+    WT, TT, NTT = Output(i, gantt)
+    print(f"{i.pid}의 WT:{WT}, TT:{TT}, NTT:{NTT}")
 
 
-def print_gantt_chart(ABT_list):
+def print_gantt(gantt):
     print("\n[Gantt Chart]")
-    
-    # 프로세스
-    for p in ABT_list:
-        print(f"| {p} ", end="")
-    print("|")
-    
-    # 시간
-    for t in range(len(ABT_list) + 1):
-        print(f"{t}".ljust(4), end="")
-    print()
+    for core, timeline in gantt.items():
+        print(f"{core}: ", end="")
+        for t in timeline:
+            print(f"|{t}", end="")
+        print("|")
 
-print_gantt_chart(ABT)
+print_gantt(gantt)
+print(f"\n총 소비전력: {total_power}W")
