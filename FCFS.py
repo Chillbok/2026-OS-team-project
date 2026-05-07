@@ -110,19 +110,9 @@ def FCFS_multi_core(processes, p_count, e_count):
 
 	return completed, gantt, total_power
 
-#실행종료 시간 계산
-def CompletionTimeChecker(process, gantt):
-	temp = 0
-	for key in gantt:
-		for item in range(len(gantt[key]) - 1, -1, -1):
-			if gantt[key][item] == process.pid:
-				temp = max(temp, item + 1)
-				break
-	return temp
-
 #반환값 계산
 def Output(process, gantt):
-	completionTime=CompletionTimeChecker(process, gantt)
+	completionTime=process.finish_time
 	turnaroundTime=completionTime-process.arrival
 
 	for key in gantt:
@@ -142,15 +132,12 @@ def Output(process, gantt):
 동작확인
 '''
 tasks = []
-gantt = []
 
 tasks.append(Process(1,0,3))
 tasks.append(Process(2,1,7))
 tasks.append(Process(3,3,2))
 tasks.append(Process(4,5,5))
 tasks.append(Process(5,6,3))
-
-tasks.sort(key=lambda x: x.arrival)
 
 # FCFS 실행 결과로 ABT 생성
 completed, gantt, total_power = FCFS_multi_core(tasks, p_count=2, e_count=2)
