@@ -124,8 +124,17 @@ def CompletionTimeChecker(process, gantt):
 def Output(process, gantt):
 	completionTime=CompletionTimeChecker(process, gantt)
 	turnaroundTime=completionTime-process.arrival
-	waitingTime=turnaroundTime-process.burst
-	NTT=turnaroundTime/process.burst if process.burst > 0 else 0
+
+	for key in gantt:
+		if "P-Core" in key:
+			if process.pid in gantt[key]:
+				burst = (process.burst + 1) // 2
+				break
+	else:
+		burst = process.burst
+
+	waitingTime=turnaroundTime-burst
+	NTT=turnaroundTime/burst
 
 	return waitingTime, turnaroundTime, NTT
 
