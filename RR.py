@@ -76,7 +76,7 @@ def round_robin_multi_core(processes, quantum, p_count, e_count):
     i = 0
     n = len(processes)
 
-    # 코어 정의
+    
     
 
     while len(completed) < n:
