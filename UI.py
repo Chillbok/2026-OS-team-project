@@ -1,5 +1,15 @@
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
+
+
+class Process:
+
+    def __init__(self, pid, arrival, burst):
+
+        self.pid = pid
+        self.arrival = arrival
+        self.burst = burst
 
 root = tk.Tk()
 
@@ -53,17 +63,8 @@ quantum_entry = tk.Entry(
 quantum_entry.insert(0, "3")
 quantum_entry.pack(side="left")
 
-# 실행 버튼
-run_button = tk.Button(
-    top_frame,
-    text="RUN",
-    bg="#607D8B",
-    fg="white",
-    width=10,
-    height=2
-)
 
-run_button.pack(side="right")
+
 
 # 메인 영역
 
@@ -130,7 +131,24 @@ def add_process():
 
     except ValueError:
         return
+    
+    for process in process_data:
 
+        if process["pid"] == pid:
+            messagebox.showerror(
+                "Error",
+                "PID already exists."
+            )   
+            return
+
+        if len(process_data) >= 15:
+
+            messagebox.showerror(
+                "Error",
+                "Maximum 15 processes allowed."
+            )
+            return
+        
     # 데이터 저장
     process_data.append({
         "pid": pid,
@@ -150,6 +168,65 @@ def add_process():
     arrival_entry.delete(0, tk.END)
     burst_entry.delete(0, tk.END)
 
+def delete_process():
+
+    selected = process_table.selection()
+
+    if not selected:
+        return
+
+    for item in selected:
+
+        values = process_table.item(item, "values")
+
+        pid = values[0]
+
+        # process_data 제거
+        for process in process_data:
+
+            if process["pid"] == pid:
+                process_data.remove(process)
+                break
+
+        # Treeview 제거
+        process_table.delete(item)
+
+def clear_processes():
+
+    process_data.clear()
+
+    for item in process_table.get_children():
+        process_table.delete(item)
+
+def run_scheduler():
+
+    algorithm = algorithm_var.get()
+
+    tasks = []
+
+    # Process 객체 변환
+    for p in process_data:
+
+        tasks.append(
+            Process(
+                p["pid"],
+                p["arrival"],
+                p["burst"]
+            )
+        )
+
+    print("Selected Algorithm:", algorithm)
+
+    print("Tasks:")
+
+    for task in tasks:
+
+        print(
+            task.pid,
+            task.arrival,
+            task.burst
+        )
+
 # 우측 패널
 
 add_button = tk.Button(
@@ -160,6 +237,36 @@ add_button = tk.Button(
 
 add_button.pack(fill="x", pady=5)
 
+delete_button = tk.Button(
+    input_frame,
+    text="Delete Selected",
+    bg="#B71C1C",
+    fg="white",
+    command=delete_process
+)
+
+clear_button = tk.Button(
+    input_frame,
+    text="Clear All",
+    bg="#616161",
+    fg="white",
+    command=clear_processes
+)
+
+# 실행 버튼
+run_button = tk.Button(
+    top_frame,
+    text="RUN",
+    bg="#607D8B",
+    fg="white",
+    width=10,
+    height=2,
+    command=run_scheduler
+)
+
+clear_button.pack(fill="x", pady=5)
+delete_button.pack(fill="x", pady=5)
+run_button.pack(side="right")
 
 right_frame = tk.Frame(main_frame)
 right_frame.pack(side="left", fill="both", expand=True)
