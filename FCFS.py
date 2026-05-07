@@ -1,51 +1,50 @@
 ﻿class Core:
-    def __init__(
-        self,
-        name,
-        performance,
-        run_power,
-        wake_power
-    ):
+	def __init__(
+		self,
+		name,
+		performance,
+		run_power,
+		wake_power
+	):
 
-        self.name = name
+		self.name = name
 
-        # 성능
-        self.performance = performance # 1이면 E-Core, 2면 P-Core
-        self.run_power = run_power
-        self.wake_power = wake_power
-        self.current = None
+		# 성능
+		self.performance = performance # 1이면 E-Core, 2면 P-Core
+		self.run_power = run_power
+		self.wake_power = wake_power
+		self.current = None
 		
-        # RR quantum
-        self.time_slice = 0
+		# RR quantum
+		self.time_slice = 0
 
-        # 이전 tick 활성 상태
-        self.was_idle = True
+		# 이전 tick 활성 상태
+		self.was_idle = True
 
-def create_cores(p_count, e_count):
+def create_cores(coreTypes):
 
-    cores = []
-
-    for i in range(p_count):
-        cores.append(
-            Core(
-                name=f"P-Core {i}",
-                performance=2,
-                run_power=3,
-                wake_power=0.5
-            )
-        )
-
-    for i in range(e_count):
-        cores.append(
-            Core(
-                name=f"E-Core {i}",
-                performance=1,
-                run_power=1,
-                wake_power=0.1
-            )
-        )
-
-    return cores
+	cores = []
+	
+	for i in coreTypes:
+		if i.get() == "P":
+			cores.append(
+				Core(
+					name=f"P-Core {len(cores)}",
+					performance=2,
+					run_power=3,
+					wake_power=0.5
+				)
+			)
+		else:
+			cores.append(
+				Core(
+					name=f"E-Core {len(cores)}",
+					performance=1,
+					run_power=1,
+					wake_power=0.1
+				)
+			)
+	return cores
 
 class Process:
 	def __init__(self, pid, arrival, burst):
@@ -57,11 +56,11 @@ class Process:
 
 
 #간트차트 그리기
-def FCFS_multi_core(processes, p_count, e_count):
+def FCFS_multi_core(processes, coreTypes):
 	time = 0
 	arrived = []
 	completed = []
-	cores = create_cores(p_count, e_count)
+	cores = create_cores(coreTypes)
 	total_power = 0
 
 	processes.sort(key=lambda x: x.arrival)
@@ -130,7 +129,7 @@ def Output(process, gantt):
 
 '''
 동작확인
-'''
+
 tasks = []
 
 tasks.append(Process(1,0,3))
@@ -140,20 +139,21 @@ tasks.append(Process(4,5,5))
 tasks.append(Process(5,6,3))
 
 # FCFS 실행 결과로 ABT 생성
-completed, gantt, total_power = FCFS_multi_core(tasks, p_count=2, e_count=2)
+completed, gantt, total_power = FCFS_multi_core(tasks, p_count=2, coreTypes=2)
 
 for i in tasks:
-    WT, TT, NTT = Output(i, gantt)
-    print(f"{i.pid}의 WT:{WT}, TT:{TT}, NTT:{NTT}")
+	WT, TT, NTT = Output(i, gantt)
+	print(f"{i.pid}의 WT:{WT}, TT:{TT}, NTT:{NTT}")
 
 
 def print_gantt(gantt):
-    print("\n[Gantt Chart]")
-    for core, timeline in gantt.items():
-        print(f"{core}: ", end="")
-        for t in timeline:
-            print(f"|{t}", end="")
-        print("|")
+	print("\n[Gantt Chart]")
+	for core, timeline in gantt.items():
+		print(f"{core}: ", end="")
+		for t in timeline:
+			print(f"|{t}", end="")
+		print("|")
 
 print_gantt(gantt)
 print(f"\n총 소비전력: {total_power}W")
+'''
