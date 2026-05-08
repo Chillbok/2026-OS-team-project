@@ -9,6 +9,8 @@ from FCFS import FCFS
 from FCFS import Process as FCFSProcess
 from RR import RR
 from RR import Process as RRProcess
+from SPN import SPN, Process as SPNProcess
+from SRTN import SRTN, Process as SRTNProcess
 
 
 root = tk.Tk()
@@ -390,6 +392,16 @@ def run_scheduler():
             quantum=quantum,
             coreTypes=core_vars
         )
+    
+    elif algorithm == "SPN":
+        tasks = [SPNProcess(p["pid"], p["arrival"], p["burst"]) for p in process_data]
+        p_count, e_count = get_core_counts()
+        processes, gantt, power = SPN(tasks, p_count, e_count)
+
+    elif algorithm == "SRTN":
+        tasks = [SRTNProcess(p["pid"], p["arrival"], p["burst"]) for p in process_data]
+        p_count, e_count = get_core_counts()
+        gantt, power = SRTN(tasks, p_count, e_count)
 
     if gantt is not None:
 
@@ -410,10 +422,23 @@ def run_scheduler():
         print("\n[Process Result]")
 
         for p in processes:
+            actual_burst = 0 # 실제 실행 시간(Tick)을 저장할 변수 초기화
+        
+        # 1. Gantt 차트의 모든 코어(P, E) 타임라인을 전부 뒤집니다.
+            for timeline in gantt.values():
+                for t in timeline:
+                # 2. 현재 프로세스의 PID와 일치하는 기록(칸)이 있으면 카운트 증가
+                    if str(t) == str(p.pid):
+                        actual_burst += 1
+                    
+        # (예외 처리: 간트 차트에 기록이 없는 치명적 오류 등 대비용 초기화)
+            if actual_burst == 0:
+                actual_burst = p.burst
 
+        # 결과 출력 (터미널 및 UI 테이블)
             tt = p.finish_time - p.arrival
-            wt = p.start_time - p.arrival
-            ntt = tt / p.burst
+            wt = tt - actual_burst
+            ntt = tt / actual_burst if actual_burst > 0 else 0
 
             print(
                 f"{p.pid} | WT={wt} "
@@ -435,9 +460,23 @@ def run_scheduler():
 
         for p in processes:
 
+            actual_burst = 0 # 실제 실행 시간(Tick)을 저장할 변수 초기화
+        
+        # 1. Gantt 차트의 모든 코어(P, E) 타임라인을 전부 뒤집니다.
+            for timeline in gantt.values():
+                for t in timeline:
+                # 2. 현재 프로세스의 PID와 일치하는 기록(칸)이 있으면 카운트 증가
+                    if str(t) == str(p.pid):
+                        actual_burst += 1
+                    
+        # (예외 처리: 간트 차트에 기록이 없는 치명적 오류 등 대비용 초기화)
+            if actual_burst == 0:
+                actual_burst = p.burst
+
+        # 결과 출력 (터미널 및 UI 테이블)
             tt = p.finish_time - p.arrival
-            wt = p.start_time - p.arrival
-            ntt = tt / p.burst
+            wt = tt - actual_burst
+            ntt = tt / actual_burst if actual_burst > 0 else 0
 
             result_table.insert(
                 "",

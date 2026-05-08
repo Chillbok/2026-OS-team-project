@@ -27,7 +27,7 @@ class Process:
 # ==========================================
 # SPN 알고리즘
 # ==========================================
-def SPN_multi_core(processes, p_count, e_count):
+def SPN(processes, p_count, e_count):
     time = 0
     arrived = []
     completed = []
@@ -59,6 +59,9 @@ def SPN_multi_core(processes, p_count, e_count):
                 total_power += core.run_power
                 core.was_idle = False
 
+                if core.current.start_time is None:
+                    core.current.start_time = time
+
                 for _ in range(core.performance): 
                     if core.current.remaining <= 0:
                         break
@@ -72,52 +75,9 @@ def SPN_multi_core(processes, p_count, e_count):
                     core.current = None
 
             else:
-                gantt[core.name].append(0)
+                gantt[core.name].append("idle")
                 core.was_idle = True
                 
         time += 1
 
     return completed, gantt, total_power
-
-def CompletionTimeChecker(process, gantt):
-    temp = 0
-    for key in gantt:
-        for item in range(len(gantt[key]) - 1, -1, -1):
-            if gantt[key][item] == process.pid:
-                temp = max(temp, item + 1)
-                break
-    return temp
-
-def Output(process, gantt):
-    completionTime=CompletionTimeChecker(process, gantt)
-    turnaroundTime=completionTime-process.arrival
-    waitingTime=turnaroundTime-process.burst
-    NTT=turnaroundTime/process.burst if process.burst > 0 else 0
-    return waitingTime, turnaroundTime, NTT
-
-'''
-동작확인
-'''
-tasks = []
-tasks.append(Process(1,0,3))
-tasks.append(Process(2,1,7))
-tasks.append(Process(3,3,2))
-tasks.append(Process(4,5,5))
-tasks.append(Process(5,6,3))
-
-completed, gantt, total_power = SPN_multi_core(tasks, p_count=2, e_count=2)
-
-for i in tasks:
-    WT, TT, NTT = Output(i, gantt)
-    print(f"{i.pid}의 WT:{WT}, TT:{TT}, NTT:{NTT}")
-
-def print_gantt(gantt):
-    print("\n[SPN Gantt Chart]")
-    for core, timeline in gantt.items():
-        print(f"{core}: ", end="")
-        for t in timeline:
-            print(f"|{t}", end="")
-        print("|")
-
-print_gantt(gantt)
-print(f"\n총 소비전력: {total_power}W")
