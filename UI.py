@@ -91,7 +91,7 @@ def update_task_type_state(event=None):
         )
 
         task_type_combo.set(
-            "INFOTAINMENT"
+            "Infotainment"
         )
 
     # 나머지는 비활성
@@ -248,7 +248,7 @@ def draw_gantt(gantt, algorithm):
 
                 if algorithm == "Auto Driving":
 
-                    task_type = "INFOTAINMENT"
+                    task_type = "Infotainment"
 
                     for p in process_data:
 
@@ -616,7 +616,7 @@ task_type_combo = ttk.Combobox(
     state="readonly"
 )
 
-task_type_combo.current(5)  # INFOTAINMENT 기본값
+task_type_combo.current(14)  # Infotainment 기본값
 
 task_type_combo.pack(fill="x")
 
