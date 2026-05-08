@@ -3,8 +3,10 @@ class Process:
         self.pid = pid  # process ID
         self.arrival = arrival # arrival time
         self.burst = burst # burst time
-        self.start_time = 0 
+        self.remaining = burst # 남은 실행 시간
+        self.start_time = None 
         self.finish_time = 0 
+        
 class Core:
     def __init__(
         self,
@@ -20,9 +22,6 @@ class Core:
 
         # 현재 실행중 프로세스
         self.current = None
-
-        # 남은 실행 시간
-        self.remaining_work = 0
         self.was_idle = True
 
 def create_cores(p_count, e_count):
@@ -98,11 +97,8 @@ def HRRN(processes, p_count, e_count):
                     ready_queue.remove(best)
 
                     core.current = best
-
-                    # 성능 반영
-                    core.remaining_work = best.burst
-
-                    best.start_time = time
+                    if best.start_time is None:
+                        best.start_time = time
 
             # 실행
             if core.current:
@@ -117,12 +113,12 @@ def HRRN(processes, p_count, e_count):
                 core.was_idle = False
 
                 # 성능만큼 처리
-                core.remaining_work -= core.performance
+                core.current.remaining -= core.performance
 
                 gantt[core.name].append(core.current.pid)
 
                 # 종료
-                if core.remaining_work <= 0:
+                if core.current.remaining <= 0:
 
                     core.current.finish_time = time + 1
 
@@ -132,7 +128,7 @@ def HRRN(processes, p_count, e_count):
 
             else:
 
-                gantt[core.name].append("0")
+                gantt[core.name].append("idle")
 
                 core.was_idle = True
 
@@ -153,21 +149,7 @@ def print_result(processes, gantt, total_power):
     print("\n[Process Info]")
     for p in processes:
         tt = p.finish_time - p.arrival
-        wt = tt - p.burst
+        wt = p.start_time - p.arrival
         ntt = tt / p.burst
         print(f"{p.pid}: WT={wt}, TT={tt}, NTT={ntt:.2f}")
     print(f"\n총 소비전력: {total_power}W")
-    
-
-# 테스트
-processes = []
-processes.append(Process(1, 0, 7))
-processes.append(Process(2, 1, 6))
-processes.append(Process(3, 2, 4))
-processes.append(Process(4, 3, 3))
-processes.append(Process(5, 5, 6))
-processes.append(Process(6, 7, 2))
-
-
-completed, gantt, total_power = HRRN(processes, p_count=2, e_count=2)
-print_result(completed, gantt, total_power)
