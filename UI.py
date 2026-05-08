@@ -441,9 +441,17 @@ def run_scheduler():
 
     print("\n[Process Result]")
     for p in processes:
+        actual_burst = 0
+        for timeline in gantt.values():
+            for t in timeline:
+                if str(t) == str(p.pid):
+                    actual_burst += 1
+        if actual_burst == 0:
+            actual_burst = p.burst
+
         tt = p.finish_time - p.arrival
-        wt = p.start_time - p.arrival if hasattr(p, 'start_time') and p.start_time is not None else tt - p.burst
-        ntt = tt / p.burst if p.burst > 0 else 0
+        wt = tt - actual_burst
+        ntt = tt / actual_burst if actual_burst > 0 else 0
         print(f"{p.pid} | WT={wt} | TT={tt} | NTT={ntt:.2f}")
 
     print(f"\nTotal Power: {power}")
@@ -455,9 +463,17 @@ def run_scheduler():
         result_table.delete(item)
 
     for p in processes:
+        actual_burst = 0
+        for timeline in gantt.values():
+            for t in timeline:
+                if str(t) == str(p.pid):
+                    actual_burst += 1
+        if actual_burst == 0:
+            actual_burst = p.burst
+
         tt = p.finish_time - p.arrival
-        wt = p.start_time - p.arrival if hasattr(p, 'start_time') and p.start_time is not None else tt - p.burst
-        ntt = tt / p.burst if p.burst > 0 else 0
+        wt = tt - actual_burst
+        ntt = tt / actual_burst if actual_burst > 0 else 0
         result_table.insert("", "end", values=(p.pid, wt, tt, f"{ntt:.2f}"))
             
 # 우측 패널
