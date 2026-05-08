@@ -52,11 +52,12 @@ class Process:
 		self.arrival=arrival
 		self.burst=burst
 		self.remaining=burst
+		self.start_time=None
 		self.finish_time = 0
 
 
 #간트차트 그리기
-def FCFS_multi_core(processes, coreTypes):
+def FCFS(processes, coreTypes):
 	time = 0
 	arrived = []
 	completed = []
@@ -86,6 +87,9 @@ def FCFS_multi_core(processes, coreTypes):
 					total_power += core.wake_power
 				total_power += core.run_power
 				core.was_idle = False
+				
+				if core.current.start_time is None:
+					core.current.start_time = time
 
 				for _ in range(core.performance):#성능만큼 실행
 					if core.current.remaining <= 0:
@@ -98,11 +102,12 @@ def FCFS_multi_core(processes, coreTypes):
 				# 완료 체크
 				if core.current.remaining == 0:
 					core.current.finish_time = time + 1
+					core.current.burst = burstOutput(core.current, core.name)
 					completed.append(core.current)
 					core.current = None
 
 			else:
-				gantt[core.name].append(0)
+				gantt[core.name].append("idle")
 				core.was_idle = True
 				
 		time +=1
@@ -110,50 +115,10 @@ def FCFS_multi_core(processes, coreTypes):
 	return completed, gantt, total_power
 
 #반환값 계산
-def Output(process, gantt):
-	completionTime=process.finish_time
-	turnaroundTime=completionTime-process.arrival
-
-	for key in gantt:
-		if "P-Core" in key:
-			if process.pid in gantt[key]:
-				burst = (process.burst + 1) // 2
-				break
+def burstOutput(process, coreName):
+	if "P-Core" in coreName:
+		burst = (process.burst + 1) // 2
 	else:
 		burst = process.burst
 
-	waitingTime=turnaroundTime-burst
-	NTT=turnaroundTime/burst
-
-	return waitingTime, turnaroundTime, NTT
-
-'''
-동작확인
-
-tasks = []
-
-tasks.append(Process(1,0,3))
-tasks.append(Process(2,1,7))
-tasks.append(Process(3,3,2))
-tasks.append(Process(4,5,5))
-tasks.append(Process(5,6,3))
-
-# FCFS 실행 결과로 ABT 생성
-completed, gantt, total_power = FCFS_multi_core(tasks, p_count=2, coreTypes=2)
-
-for i in tasks:
-	WT, TT, NTT = Output(i, gantt)
-	print(f"{i.pid}의 WT:{WT}, TT:{TT}, NTT:{NTT}")
-
-
-def print_gantt(gantt):
-	print("\n[Gantt Chart]")
-	for core, timeline in gantt.items():
-		print(f"{core}: ", end="")
-		for t in timeline:
-			print(f"|{t}", end="")
-		print("|")
-
-print_gantt(gantt)
-print(f"\n총 소비전력: {total_power}W")
-'''
+	return burst

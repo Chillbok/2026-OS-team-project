@@ -7,9 +7,9 @@ class Process:
         self.arrival = arrival
         self.burst = burst
         self.remaining = burst
+        self.start_time = None
         self.finish_time = 0
-        self.p_ticks = 0  # P-Core에서 실행된 시간
-        self.e_ticks = 0  # E-Core에서 실행된 시간
+        self.ticks = 0
 
 
 class Core:
@@ -39,30 +39,30 @@ class Core:
 
 def create_cores(coreTypes):
 
-	cores = []
-	
-	for i in coreTypes:
-		if i.get() == "P":
-			cores.append(
-				Core(
-					name=f"P-Core {len(cores)}",
-					performance=2,
-					run_power=3,
-					wake_power=0.5
-				)
-			)
-		else:
-			cores.append(
-				Core(
-					name=f"E-Core {len(cores)}",
-					performance=1,
-					run_power=1,
-					wake_power=0.1
-				)
-			)
-	return cores
+    cores = []
+    
+    for i in coreTypes:
+        if i.get() == "P":
+            cores.append(
+                Core(
+                    name=f"P-Core {len(cores)}",
+                    performance=2,
+                    run_power=3,
+                    wake_power=0.5
+                )
+            )
+        else:
+            cores.append(
+                Core(
+                    name=f"E-Core {len(cores)}",
+                    performance=1,
+                    run_power=1,
+                    wake_power=0.1
+                )
+            )
+    return cores
 
-def round_robin_multi_core(processes, quantum, coreTypes):
+def RR(processes, quantum, coreTypes):
 
     time = 0
     queue = deque()
@@ -79,7 +79,7 @@ def round_robin_multi_core(processes, quantum, coreTypes):
     n = len(processes)
 
     
-    in_use = []  # RR에서 quantum 끝나서 대기하는 프로세스들
+    in_use = []  # RR에서 quantum 끝나서 다음 시간 텀까지 대기하는 프로세스들
     while len(completed) < n:
 
         # 도착 처리
@@ -103,15 +103,15 @@ def round_robin_multi_core(processes, quantum, coreTypes):
                 total_power += core.run_power
                 core.was_idle = False
                 
+                if core.current.start_time is None:
+                    core.current.start_time = time
+
                 # 성능만큼 실행
                 for _ in range(core.performance):
                     if core.current.remaining <= 0:
                         break
                     core.current.remaining -= 1
-                if "P-Core" in core.name:
-                     core.current.p_ticks += 1
-                else:
-                     core.current.e_ticks += 1
+                core.current.ticks += 1
                 core.time_slice += 1
 
                 gantt[core.name].append(core.current.pid)
@@ -119,6 +119,7 @@ def round_robin_multi_core(processes, quantum, coreTypes):
                 # 완료 체크
                 if core.current.remaining == 0:
                     core.current.finish_time = time + 1
+                    core.current.burst = burstOutput(core.current)
                     completed.append(core.current)
                     core.current = None
 
@@ -128,7 +129,7 @@ def round_robin_multi_core(processes, quantum, coreTypes):
                     core.current = None
 
             else:
-                gantt[core.name].append(0)
+                gantt[core.name].append("idle")
                 core.was_idle = True
 
         time += 1
@@ -146,35 +147,6 @@ def print_gantt(gantt):
         print("|")
 
 #반환값 계산
-def Output(process, gantt):
-	completionTime=process.finish_time
-	turnaroundTime=completionTime-process.arrival
-
-	burst = process.p_ticks * 2 + process.e_ticks
-
-	waitingTime=turnaroundTime-burst
-	NTT=turnaroundTime/burst
-
-	return waitingTime, turnaroundTime, NTT
-
-'''
-# 테스트
-tasks = [
-    Process(1, 0, 5),
-    Process(2, 2, 8),
-    Process(3, 4, 6),
-    Process(4, 4, 2),
-    Process(5, 5, 4),
-]
-
-result, gantt, power = round_robin_multi_core(
-    tasks,
-    quantum=3,
-    p_count=2,
-    e_count=2
-)
-
-print_gantt(gantt)
-
-print(f"\n총 소비전력: {power}W")
-'''
+def burstOutput(process):
+    burst = process.ticks
+    return burst
