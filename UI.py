@@ -5,6 +5,10 @@ from OS_project import Process
 from OS_project import scheduler
 from HRRN import HRRN
 from HRRN import Process as HRRNProcess
+from FCFS import FCFS
+from FCFS import Process as FCFSProcess
+from RR import RR
+from RR import Process as RRProcess
 
 
 root = tk.Tk()
@@ -344,6 +348,48 @@ def run_scheduler():
 
             return
         gantt, processes, power = scheduler(tasks, p_count, e_count)
+
+    elif algorithm == "FCFS":
+
+        fcfs_tasks = []
+
+        for p in process_data:
+
+            fcfs_tasks.append(
+                FCFSProcess(
+                    p["pid"],
+                    p["arrival"],
+                    p["burst"]
+                )
+            )
+
+        p_count, e_count = get_core_counts()
+        processes, gantt, power = FCFS(
+            fcfs_tasks,
+            coreTypes=core_vars
+        )
+
+    elif algorithm == "RR":
+
+        rr_tasks = []
+
+        for p in process_data:
+
+            rr_tasks.append(
+                RRProcess(
+                    p["pid"],
+                    p["arrival"],
+                    p["burst"]
+                )
+            )
+
+        quantum=int(quantum_entry.get())
+        p_count, e_count = get_core_counts()
+        processes, gantt, power = RR(
+            rr_tasks,
+            quantum=quantum,
+            coreTypes=core_vars
+        )
 
     if gantt is not None:
 
