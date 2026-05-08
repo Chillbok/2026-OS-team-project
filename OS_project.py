@@ -1,25 +1,34 @@
 def is_emergency(task):
     # 안전과 직결되는 작업
-    return task.task_type in ["EMERGENCY_BRAKE", "COLLISION_AVOID"]
+    return task.task_type in ["EmergencyBrake", "AirbagTrigger"]
 
 
 def is_control(task):
     # 자율주행 제어 관련 작업
-    return task.task_type in ["STEERING", "LANE_KEEP"]
+    return task.task_type in ["ABSControl", "EngineControl", "Steering", "LaneKeep", "CollisionAvoidance"]
 
 # 우선순위를 두어 같은 작업 내의 선점 막기
 PRIORITY = {
     # EMERGENCY
-    "EMERGENCY_BRAKE": 0,
-    "COLLISION_AVOID": 1,
+    "AirbagTrigger": 0,
+    "EmergencyBrake": 1,
 
     # CONTROL
-    "STEERING": 2,
-    "LANE_KEEP": 3,
+    "ABSControl": 2,
+    "EngineControl" : 2,
+    "Steering": 3,
+    "LaneKeep": 3,
+    "CollisionAvoidance": 4,
 
     # NORMAL
-    "CRUISE_CONTROL": 4,
-    "INFOTAINMENT": 5,
+    "TirePressureMonitor": 5,
+    "BatteryMonitor": 5,
+    "CoolantTempMonitor": 5,
+    "OBDDiagnostics": 6,
+    "GPSNavigation": 6,
+    "DashcamRecording": 6,
+    "AirConditioning": 7,
+    "Infotainment": 7
 }
 
 class Process:
@@ -29,27 +38,61 @@ class Process:
         self.burst = burst
         self.remaining = burst
         self.task_type = task_type
+        self.start_time = None
         self.finish_time = 0
         self.priority = PRIORITY[task_type]
 
 class Core:
-    def __init__(self, name, role, power, performance, start_power):
+    def __init__(self, name, role, power, performance, wake_power):
         self.name = name
         self.role = role  # EMERGENCY / CONTROL / NORMAL
         self.current = None # 현재 실행 중인 프로세스
         self.power = power # 전력
         self.performance = performance # 일 하는 양
-        self.start_power = start_power
+        self.wake_power = wake_power
         self.was_idle = True
+
+def create_cores(p_count, e_count):
+
+    cores = []
+    # P-Core 생성
+    for i in range(p_count):
+
+        if i == 0:
+            role = "EMERGENCY" #첫 번째의 P-Core는 긴급 작업 전용
+        else:
+            role = "CONTROL" #나머지 P-Core는 제어 작업 전용
+
+        cores.append(
+            Core(
+                name=f"P{i}",
+                role=role,
+                power=3,
+                performance=2,
+                wake_power=0.5
+            )
+        )
+
+    # E-Core 생성
+    for i in range(e_count):
+
+        cores.append(
+            Core(
+                name=f"E{i}",
+                role="NORMAL",
+                power=1,
+                performance=1,
+                wake_power=0.1
+            )
+        )
+
+    return cores
 
 def preempt(current, incoming):
     # 더 높은 우선순위(숫자 작음)일 때만 선점
     return incoming.priority < current.priority
 
-def scheduler(processes):
-
-    if len(processes) > 15:
-        raise ValueError("최대 15개 제한") # 프로세스 15개 이상 에러
+def scheduler(processes,  p_count, e_count):
 
     time = 0
     completed = []
@@ -59,14 +102,7 @@ def scheduler(processes):
     control_q = [] # 제어
     normal_q = [] # 일반
 
-    # 코어 정의. P2: 긴급 전용, P1: 제어 전용, E1/E2: 일반
-    cores = [
-        Core("P2", "EMERGENCY", power=3, performance=2, start_power = 2), #전력 3 작업량 2
-        Core("P1", "CONTROL", power=3, performance=2, start_power = 2),
-        Core("E1", "NORMAL", power=1, performance=1, start_power = 1), #전력 1 작업량 1
-        Core("E2", "NORMAL", power=1, performance=1, start_power = 1),
-    ]
-
+    cores = create_cores(p_count, e_count)
     gantt = {c.name: [] for c in cores}
     total_power = 0
 
@@ -81,31 +117,54 @@ def scheduler(processes):
                     control_q.append(p)
                 else:
                     normal_q.append(p)
+        # 전체 대기 작업 중 가장 우선순위 높은 작업 선택
+        candidates = (
+            emergency_q +
+            control_q +
+            normal_q
+        )
 
-        for core in cores:
-            if not core.current:
-                continue
+        if candidates:
 
-            candidates = []
-            candidates.extend(emergency_q)
-            candidates.extend(control_q)
-            candidates.extend(normal_q)
+            incoming = min(
+                candidates,
+                key=lambda x: (x.priority, x.arrival)
+            )
 
-            if not candidates:
-                continue
+            preempt_core = None
 
-            best = min(candidates, key=lambda x: x.priority)
+            # 선점 가능한 코어 탐색
+            for core in cores:
 
-            # 더 높은 priority일 때만 선점
-            if preempt(core.current, best):
-                if is_emergency(core.current):
-                    emergency_q.append(core.current)
-                elif is_control(core.current):
-                    control_q.append(core.current)
+                if core.current is None:
+                    continue
+
+                if preempt(core.current, incoming):
+
+                    # 가장 낮은 우선순위 작업 실행 중인 코어 선택
+                    if (
+                        preempt_core is None or
+                        core.current.priority >
+                        preempt_core.current.priority
+                    ):
+                        preempt_core = core
+
+            # 실제 선점 수행
+            if preempt_core:
+
+                old = preempt_core.current
+
+                # 기존 작업 다시 큐로 반환
+                if is_emergency(old):
+                    emergency_q.append(old)
+
+                elif is_control(old):
+                    control_q.append(old)
+
                 else:
-                    normal_q.append(core.current)
+                    normal_q.append(old)
 
-                core.current = None
+                preempt_core.current = None
 
         # 작업 할당
         for core in cores: 
@@ -113,27 +172,59 @@ def scheduler(processes):
             if core.current: # 작업 중인 일은 계속
                 continue
 
-            if core.role == "EMERGENCY" and emergency_q:
-                best = min(emergency_q, key=lambda x: x.priority)
-                emergency_q.remove(best)
-                core.current = best
+            if core.role == "EMERGENCY":
 
-            elif core.role == "CONTROL":
-                # 우선순위가 더 높은 EMERGENCY 작업을 먼저 확인
                 if emergency_q:
-                    best = min(emergency_q, key=lambda x: x.priority)
+                    best = min(emergency_q,key=lambda x: (x.priority, x.arrival))
                     emergency_q.remove(best)
                     core.current = best
+
                 elif control_q:
-                    best = min(control_q, key=lambda x: x.priority)
+                    best = min(control_q, key=lambda x: (x.priority, x.arrival))
                     control_q.remove(best)
                     core.current = best
 
-            elif core.role == "NORMAL":
-                if normal_q:
-                    best = min(normal_q, key=lambda x: x.priority)
+                if core.current and core.current.start_time is None:
+                    core.current.start_time = time
+
+            elif core.role == "CONTROL":
+                
+                if control_q:
+                    best = min(control_q, key=lambda x: (x.priority, x.arrival))
+                    control_q.remove(best)
+                    core.current = best
+
+                elif emergency_q:
+
+                    best = min(emergency_q,key=lambda x: (x.priority, x.arrival))
+                    emergency_q.remove(best)
+                    core.current = best
+
+                elif normal_q:
+                    best = min(normal_q,key=lambda x: (x.priority, x.arrival))
                     normal_q.remove(best)
                     core.current = best
+
+                if core.current and core.current.start_time is None:
+                    core.current.start_time = time 
+
+                
+
+            elif core.role == "NORMAL": # 일반 코어는 제어, 일반 작업 순으로 작업처리
+                
+                if control_q:
+                    best = min(control_q, key=lambda x: (x.priority, x.arrival))
+                    control_q.remove(best)
+                    core.current = best
+                    if best.start_time is None:
+                        best.start_time = time
+
+                elif normal_q:
+                    best = min(normal_q, key=lambda x: (x.priority, x.arrival))
+                    normal_q.remove(best)
+                    core.current = best
+                    if best.start_time is None:
+                        best.start_time = time  
 
         
 
@@ -144,7 +235,7 @@ def scheduler(processes):
                 
                 #시동 전력 + 작업 전력
                 if core.was_idle:
-                    total_power += core.start_power
+                    total_power += core.wake_power
                 total_power += core.power
                 core.was_idle = False
 
@@ -161,7 +252,7 @@ def scheduler(processes):
                 core.was_idle = True
         time += 1
 
-    return gantt, processes, total_power
+    return gantt, processes, total_power 
 
 def print_gantt(gantt):
     print("\n[Gantt Chart]")
@@ -171,21 +262,3 @@ def print_gantt(gantt):
         for t in timeline:
             print(f"|{t}", end="")
         print("|")
-
-if __name__ == "__main__":
-
-    tasks = [
-        Process("P1", 1, 5, "LANE_KEEP"),
-        Process("P2", 0, 3, "STEERING"),
-        Process("P3", 2, 2, "EMERGENCY_BRAKE"),
-        Process("P4", 3, 4, "CRUISE_CONTROL"),
-        Process("P5", 4, 3, "INFOTAINMENT"),
-        Process("P6", 5, 2, "COLLISION_AVOID"),
-    ]
-
-    gantt, processes, power = scheduler(tasks)
-
-    print_gantt(gantt)
-
-    print("\n총 전력 소비:", power)
-
