@@ -102,7 +102,6 @@ def FCFS(processes, coreTypes):
 				# 완료 체크
 				if core.current.remaining == 0:
 					core.current.finish_time = time + 1
-					core.current.burst = burstOutput(core.current, core.name)
 					completed.append(core.current)
 					core.current = None
 
@@ -113,12 +112,3 @@ def FCFS(processes, coreTypes):
 		time +=1
 
 	return completed, gantt, total_power
-
-#반환값 계산
-def burstOutput(process, coreName):
-	if "P-Core" in coreName:
-		burst = (process.burst + 1) // 2
-	else:
-		burst = process.burst
-
-	return burst

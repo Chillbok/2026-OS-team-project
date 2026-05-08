@@ -1,5 +1,4 @@
 from collections import deque
-import queue
 
 class Process:
     def __init__(self, pid, arrival, burst):
@@ -9,7 +8,6 @@ class Process:
         self.remaining = burst
         self.start_time = None
         self.finish_time = 0
-        self.ticks = 0
 
 
 class Core:
@@ -111,7 +109,6 @@ def RR(processes, quantum, coreTypes):
                     if core.current.remaining <= 0:
                         break
                     core.current.remaining -= 1
-                core.current.ticks += 1
                 core.time_slice += 1
 
                 gantt[core.name].append(core.current.pid)
@@ -119,7 +116,6 @@ def RR(processes, quantum, coreTypes):
                 # 완료 체크
                 if core.current.remaining == 0:
                     core.current.finish_time = time + 1
-                    core.current.burst = burstOutput(core.current)
                     completed.append(core.current)
                     core.current = None
 
@@ -136,17 +132,3 @@ def RR(processes, quantum, coreTypes):
 
 
     return completed, gantt, total_power
-
-
-def print_gantt(gantt):
-    print("\n[Gantt Chart]")
-    for core, timeline in gantt.items():
-        print(f"{core}: ", end="")
-        for t in timeline:
-            print(f"|{t}", end="")
-        print("|")
-
-#반환값 계산
-def burstOutput(process):
-    burst = process.ticks
-    return burst
