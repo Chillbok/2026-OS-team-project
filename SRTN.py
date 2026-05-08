@@ -9,7 +9,7 @@ class Process:
         self.start_time = None
         self.isCompleted = False
 
-def run_srtn_scheduler(task_list, p_count, e_count):
+def SRTN(task_list, p_count, e_count):
     cores = []
     for i in range(p_count):
         cores.append({"id": f"P-Core {i}", "perf": 2, "pwr": 3, "wake_pwr": 0.5, "current": None, "idle": True})
@@ -90,43 +90,3 @@ def run_srtn_scheduler(task_list, p_count, e_count):
         current_time += 1
 
     return ABT, total_power
-
-
-def Output(Process_obj):
-    """TT, WT, NTT 결과 계산"""
-    # ABT를 넘겨받아 탐색할 필요 없이, 객체에 저장된 완료 시간을 바로 꺼내 씀
-    turnaroundTime = Process_obj.completionTime - Process_obj.arrival
-    waitingTime = turnaroundTime - Process_obj.burst
-    ntt = turnaroundTime / Process_obj.burst if Process_obj.burst > 0 else 0
-
-    return waitingTime, turnaroundTime, ntt
-
-def print_gantt_chart(ABT_dict):
-    print("\n[Gantt Chart]")
-    for core, timeline in ABT_dict.items():
-        print(f"{core}: ", end="")
-        for p in timeline:
-            print(f"|{str(p).center(4)}", end="")
-        print("|")
-
-# =======================================================
-# 동작확인 테스트
-# =======================================================
-if __name__ == "__main__":
-    tasks = []
-    tasks.append(Process("P1", 0, 3))
-    tasks.append(Process("P2", 1, 7))
-    tasks.append(Process("P3", 3, 2))
-    tasks.append(Process("P4", 5, 5))
-    tasks.append(Process("P5", 6, 3))
-
-    print("SRTN 스케줄링 시뮬레이션...")
-    ABT, total_power = run_srtn_scheduler(tasks, p_count=2, e_count=2)
-
-    print("\n[프로세스별 결과]")
-    for i in tasks:
-        WT, TT, NTT = Output(i)
-        print(f"{i.pid}의 WT:{WT}, TT:{TT}, NTT:{NTT:.2f}")
-
-    print_gantt_chart(ABT)
-    print(f"\n▶ 시스템 총 소비 전력: {total_power}W")

@@ -10,7 +10,7 @@ from FCFS import Process as FCFSProcess
 from RR import RR
 from RR import Process as RRProcess
 from SPN import SPN, Process as SPNProcess
-from SRTN import run_srtn_scheduler as SRTN, Process as SRTNProcess
+from SRTN import SRTN as SRTN, Process as SRTNProcess
 
 
 root = tk.Tk()
