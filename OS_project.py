@@ -67,7 +67,7 @@ def create_cores(p_count, e_count):
             Core(
                 name=f"P{i}",
                 role=role,
-                power=2,
+                power=3,
                 performance=2,
                 wake_power=0.5
             )
