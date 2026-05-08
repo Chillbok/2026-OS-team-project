@@ -22,6 +22,7 @@ class Process:
         self.arrival=arrival
         self.burst=burst
         self.remaining=burst
+        self.start_time = None
         self.finish_time = 0
 
 # ==========================================

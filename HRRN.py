@@ -35,7 +35,7 @@ def create_cores(p_count, e_count):
                 name=f"P-Core {i}",
                 performance=2,
                 run_power=2,
-                wake_power=2
+                wake_power=0.5
             )
         )
 
@@ -46,7 +46,7 @@ def create_cores(p_count, e_count):
                 name=f"E-Core {i}",
                 performance=1,
                 run_power=1,
-                wake_power=1
+                wake_power=0.1
             )
         )
 

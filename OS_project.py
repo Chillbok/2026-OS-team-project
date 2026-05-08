@@ -1,34 +1,34 @@
 def is_emergency(task):
     # 안전과 직결되는 작업
-    return task.task_type in ["EmergencyBrake"]
+    return task.task_type in ["EmergencyBrake", "AirbagTrigger"]
 
 
 def is_control(task):
     # 자율주행 제어 관련 작업
-    return task.task_type in ["ABSControl", "AirbagTrigger", "EngineControl", "Steering", "LaneKeep", "CollisionAvoidance"]
+    return task.task_type in ["ABSControl", "EngineControl", "Steering", "LaneKeep", "CollisionAvoidance"]
 
 # 우선순위를 두어 같은 작업 내의 선점 막기
 PRIORITY = {
     # EMERGENCY
+    "AirbagTrigger": 0,
     "EmergencyBrake": 1,
 
     # CONTROL
-    "ABSControl": 1,
-    "AirbagTrigger": 1,
-    "EngineControl" : 1,
-    "Steering": 2,
-    "LaneKeep": 2,
-    "CollisionAvoidance": 3,
+    "ABSControl": 2,
+    "EngineControl" : 2,
+    "Steering": 3,
+    "LaneKeep": 3,
+    "CollisionAvoidance": 4,
 
     # NORMAL
-    "TirePressureMonitor": 4,
-    "BatteryMonitor": 4,
-    "CoolantTempMonitor": 4,
-    "OBDDiagnostics": 4,
-    "GPSNavigation": 4,
-    "DashcamRecording": 4,
-    "AirConditioning": 4,
-    "Infotainment": 4
+    "TirePressureMonitor": 5,
+    "BatteryMonitor": 5,
+    "CoolantTempMonitor": 5,
+    "OBDDiagnostics": 6,
+    "GPSNavigation": 6,
+    "DashcamRecording": 6,
+    "AirConditioning": 7,
+    "Infotainment": 7
 }
 
 class Process:
@@ -43,13 +43,13 @@ class Process:
         self.priority = PRIORITY[task_type]
 
 class Core:
-    def __init__(self, name, role, power, performance, start_power):
+    def __init__(self, name, role, power, performance, wake_power):
         self.name = name
         self.role = role  # EMERGENCY / CONTROL / NORMAL
         self.current = None # 현재 실행 중인 프로세스
         self.power = power # 전력
         self.performance = performance # 일 하는 양
-        self.start_power = start_power
+        self.wake_power = wake_power
         self.was_idle = True
 
 def create_cores(p_count, e_count):
@@ -69,7 +69,7 @@ def create_cores(p_count, e_count):
                 role=role,
                 power=2,
                 performance=2,
-                start_power=2
+                wake_power=0.5
             )
         )
 
@@ -82,7 +82,7 @@ def create_cores(p_count, e_count):
                 role="NORMAL",
                 power=1,
                 performance=1,
-                start_power=1
+                wake_power=0.1
             )
         )
 
@@ -93,9 +93,6 @@ def preempt(current, incoming):
     return incoming.priority < current.priority
 
 def scheduler(processes,  p_count, e_count):
-
-    if len(processes) > 15:
-        raise ValueError("최대 15개 제한") # 프로세스 15개 이상 에러
 
     time = 0
     completed = []
@@ -133,7 +130,7 @@ def scheduler(processes,  p_count, e_count):
             if not candidates:
                 continue
 
-            best = min(candidates, key=lambda x: x.priority)
+            best = min(candidates, key=lambda x: (x.priority, x.arrival))
 
             # 더 높은 priority일 때만 선점
             if preempt(core.current, best):
@@ -155,32 +152,52 @@ def scheduler(processes,  p_count, e_count):
             if core.role == "EMERGENCY":
 
                 if emergency_q:
-                    best = min(emergency_q, key=lambda x: x.priority)
+                    best = min(emergency_q,key=lambda x: (x.priority, x.arrival))
                     emergency_q.remove(best)
                     core.current = best
-                    if best.start_time is None:
-                        best.start_time = time
+
+                elif control_q:
+                    best = min(control_q, key=lambda x: (x.priority, x.arrival))
+                    control_q.remove(best)
+                    core.current = best
+
+                if core.current and core.current.start_time is None:
+                    core.current.start_time = time
 
             elif core.role == "CONTROL":
                 
                 if control_q:
-                    best = min(control_q, key=lambda x: x.priority)
+                    best = min(control_q, key=lambda x: (x.priority, x.arrival))
                     control_q.remove(best)
                     core.current = best
-                    if best.start_time is None:
-                        best.start_time = time  
+
+                elif emergency_q:
+
+                    best = min(emergency_q,key=lambda x: (x.priority, x.arrival))
+                    emergency_q.remove(best)
+                    core.current = best
+
+                elif normal_q:
+                    best = min(normal_q,key=lambda x: (x.priority, x.arrival))
+                    normal_q.remove(best)
+                    core.current = best
+
+                if core.current and core.current.start_time is None:
+                    core.current.start_time = time 
+
+                
 
             elif core.role == "NORMAL": # 일반 코어는 제어, 일반 작업 순으로 작업처리
                 
                 if control_q:
-                    best = min(control_q, key=lambda x: x.priority)
+                    best = min(control_q, key=lambda x: (x.priority, x.arrival))
                     control_q.remove(best)
                     core.current = best
                     if best.start_time is None:
                         best.start_time = time
 
                 elif normal_q:
-                    best = min(normal_q, key=lambda x: x.priority)
+                    best = min(normal_q, key=lambda x: (x.priority, x.arrival))
                     normal_q.remove(best)
                     core.current = best
                     if best.start_time is None:
@@ -195,7 +212,7 @@ def scheduler(processes,  p_count, e_count):
                 
                 #시동 전력 + 작업 전력
                 if core.was_idle:
-                    total_power += core.start_power
+                    total_power += core.wake_power
                 total_power += core.power
                 core.was_idle = False
 

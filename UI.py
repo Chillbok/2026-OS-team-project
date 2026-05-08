@@ -74,8 +74,8 @@ TASK_COLORS = {
     "OBDDiagnostics": "#757575",
     "GPSNavigation": "#C0CA33",
     "DashcamRecording": "#5E35B1",
-    "AirConditioning": "#00BCD4",
-    "Infotainment": "#F4511E",
+    "AirConditioning": "#0039D4",
+    "Infotainment": "#BBE6E0",
     "idle": "#E0E0E0"
 }
 
@@ -91,7 +91,7 @@ def update_task_type_state(event=None):
         )
 
         task_type_combo.set(
-            "INFOTAINMENT"
+            "Infotainment"
         )
 
     # 나머지는 비활성
@@ -248,7 +248,7 @@ def draw_gantt(gantt, algorithm):
 
                 if algorithm == "Auto Driving":
 
-                    task_type = "INFOTAINMENT"
+                    task_type = "Infotainment"
 
                     for p in process_data:
 
