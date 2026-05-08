@@ -1,25 +1,41 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
-
-
-class Process:
-
-    def __init__(self, pid, arrival, burst):
-
-        self.pid = pid
-        self.arrival = arrival
-        self.burst = burst
+from OS_project import Process
+from OS_project import scheduler
 
 root = tk.Tk()
 
 root.title("Process Scheduling Simulator")
 root.geometry("1400x800")
 process_data = []
+TASK_TYPES = [
+    "EMERGENCY_BRAKE",
+    "COLLISION_AVOID",
+    "STEERING",
+    "LANE_KEEP",
+    "CRUISE_CONTROL",
+    "INFOTAINMENT"
+]
+
+TASK_COLORS = {
+
+    "EMERGENCY_BRAKE": "#FF5252",
+
+    "COLLISION_AVOID": "#FF9800",
+
+    "STEERING": "#42A5F5",
+
+    "LANE_KEEP": "#81D4FA",
+
+    "CRUISE_CONTROL": "#66BB6A",
+
+    "INFOTAINMENT": "#BA68C8",
+
+    "idle": "#E0E0E0"
+}
 
 # 상단 프레임
-
-
 top_frame = tk.Frame(root)
 top_frame.pack(fill="x", padx=10, pady=10)
 
@@ -73,13 +89,18 @@ main_frame.pack(fill="both", expand=True)
 
 # 좌측 패널
 
-left_frame = tk.Frame(main_frame)
+left_frame = tk.Frame(
+    main_frame,
+    width=500
+)
+
+left_frame.pack_propagate(False)
 left_frame.pack(side="left", fill="y", padx=10)
 
 # 프로세스 테이블
 process_table = ttk.Treeview(
     left_frame,
-    columns=("PID", "AT", "BT"),
+    columns=("PID", "AT", "BT", "TYPE"),
     show="headings",
     height=15
 )
@@ -87,6 +108,11 @@ process_table = ttk.Treeview(
 process_table.heading("PID", text="Process")
 process_table.heading("AT", text="Arrival")
 process_table.heading("BT", text="Burst")
+process_table.heading("TYPE", text="Task Type")
+process_table.column("PID", width=80, anchor="center")
+process_table.column("AT", width=80, anchor="center")
+process_table.column("BT", width=80, anchor="center")
+process_table.column("TYPE", width=200, anchor="center")
 
 process_table.pack()
 
@@ -114,11 +140,27 @@ tk.Label(input_frame, text="Burst Time").pack()
 burst_entry = tk.Entry(input_frame)
 burst_entry.pack(fill="x")
 
+tk.Label(input_frame, text="Task Type").pack()
+
+task_type_var = tk.StringVar()
+
+task_type_combo = ttk.Combobox(
+    input_frame,
+    textvariable=task_type_var,
+    values=TASK_TYPES,
+    state="readonly"
+)
+
+task_type_combo.current(5)  # INFOTAINMENT 기본값
+
+task_type_combo.pack(fill="x")
+
 def add_process():
 
     pid = pid_entry.get()
     arrival = arrival_entry.get()
     burst = burst_entry.get()
+    task_type = task_type_var.get()
 
     # 빈칸 체크
     if not pid or not arrival or not burst:
@@ -153,20 +195,22 @@ def add_process():
     process_data.append({
         "pid": pid,
         "arrival": arrival,
-        "burst": burst
+        "burst": burst,
+        "task_type": task_type
     })
 
     # Treeview 추가
     process_table.insert(
         "",
         "end",
-        values=(pid, arrival, burst)
+        values=(pid, arrival, burst, task_type)
     )
 
     # 입력창 초기화
     pid_entry.delete(0, tk.END)
     arrival_entry.delete(0, tk.END)
     burst_entry.delete(0, tk.END)
+    
 
 def delete_process():
 
@@ -198,6 +242,78 @@ def clear_processes():
     for item in process_table.get_children():
         process_table.delete(item)
 
+def draw_gantt(gantt):
+    
+
+    canvas.delete("all")  # 기존 내용 지우기
+
+    cell_width = 30
+    cell_height = 28
+
+    x_offset = 80
+    y_offset = 10
+
+    for row, (core_name, timeline) in enumerate(gantt.items()):
+
+        y = y_offset + row * (cell_height + 5)
+
+        # 코어 이름
+        canvas.create_text(
+            x_offset - 10,
+            y + cell_height // 2,
+            text=core_name,
+            anchor="e"
+        )
+
+        for col, pid in enumerate(timeline):
+
+            x = x_offset + col * cell_width
+
+            if pid == "idle":
+
+                color = TASK_COLORS["idle"]
+
+            else:
+
+                # process_data에서 task_type 찾기
+                task_type = "INFOTAINMENT"
+
+                for p in process_data:
+
+                    if p["pid"] == pid:
+
+                        task_type = p["task_type"]
+                        break
+
+                color = TASK_COLORS[task_type]
+
+            # 박스
+            canvas.create_rectangle(
+                x,
+                y,
+                x + cell_width,
+                y + cell_height,
+                fill=color
+            )
+
+            # pid
+            canvas.create_text(
+                x + cell_width // 2,
+                y + cell_height // 2,
+                text=str(pid)
+            )
+
+            # 시간
+            canvas.create_text(
+                x,
+                y + cell_height + 5,
+                text=str(col),
+                anchor="n"
+            )
+            canvas.config(
+                scrollregion=canvas.bbox("all")
+            )
+
 def run_scheduler():
 
     algorithm = algorithm_var.get()
@@ -211,7 +327,8 @@ def run_scheduler():
             Process(
                 p["pid"],
                 p["arrival"],
-                p["burst"]
+                p["burst"],
+                p["task_type"]                
             )
         )
 
@@ -226,7 +343,65 @@ def run_scheduler():
             task.arrival,
             task.burst
         )
+    if algorithm == "Auto Driving":
 
+        gantt, processes, power = scheduler(tasks)
+
+        print("\n========== RESULT ==========")
+
+        print("\n[Gantt Chart]")
+
+        for core, timeline in gantt.items():
+
+            print(f"{core}: ", end="")
+
+            for t in timeline:
+                print(f"|{t}", end="")
+
+            print("|")
+
+        print("\n[Process Result]")
+
+        for p in processes:
+
+            tt = p.finish_time - p.arrival
+            wt = tt - p.burst
+            ntt = tt / p.burst
+
+            print(
+                f"{p.pid} | WT={wt} "
+                f"| TT={tt} "
+                f"| NTT={ntt:.2f}"
+            )
+
+        print(f"\nTotal Power: {power}")
+        power_var.set(
+            f"Total Power Consumption: {power}W"
+        )
+        draw_gantt(gantt)
+
+        # 기존 결과 제거
+        for item in result_table.get_children():
+            result_table.delete(item)
+
+        # 결과 추가
+        for p in processes:
+
+            tt = p.finish_time - p.arrival
+            wt = tt - p.burst
+            ntt = tt / p.burst
+
+            result_table.insert(
+                "",
+                "end",
+                values=(
+                    p.pid,
+                    wt,
+                    tt,
+                    f"{ntt:.2f}"
+                )
+            )
+            
 # 우측 패널
 
 add_button = tk.Button(
@@ -307,6 +482,22 @@ for i in range(4):
     ).pack(anchor="w")
 
 # Gantt Chart 영역
+power_var = tk.StringVar()
+
+power_var.set("Total Power: 0W")
+
+power_label = tk.Label(
+    right_frame,
+    textvariable=power_var,
+    font=("Arial", 11, "bold"),
+    anchor="w"
+)
+
+power_label.pack(
+    fill="x",
+    padx=10,
+    pady=(5, 0)
+)
 
 gantt_frame = tk.LabelFrame(
     right_frame,
@@ -314,11 +505,73 @@ gantt_frame = tk.LabelFrame(
 )
 
 gantt_frame.pack(fill="both", expand=True, pady=10)
+result_frame = tk.LabelFrame(
+    right_frame,
+    text="Scheduling Result"
+)
+
+result_frame.pack(
+    fill="x",
+    padx=5,
+    pady=5
+)
+
+
+result_table = ttk.Treeview(
+    result_frame,
+    columns=("PID", "WT", "TT", "NTT"),
+    show="headings",
+    height=6
+)
+
+result_table.heading("PID", text="Process")
+result_table.heading("WT", text="WT")
+result_table.heading("TT", text="TT")
+result_table.heading("NTT", text="NTT")
+
+result_table.column("PID", width=100, anchor="center")
+result_table.column("WT", width=80, anchor="center")
+result_table.column("TT", width=80, anchor="center")
+result_table.column("NTT", width=100, anchor="center")
+
+result_table.pack(fill="x")
+
 
 canvas = tk.Canvas(
     gantt_frame,
     bg="white",
     height=300
+)
+
+# 가로 스크롤바
+x_scrollbar = tk.Scrollbar(
+    gantt_frame,
+    orient="horizontal",
+    command=canvas.xview
+)
+
+# 세로 스크롤바 (추천)
+y_scrollbar = tk.Scrollbar(
+    gantt_frame,
+    orient="vertical",
+    command=canvas.yview
+)
+
+# canvas와 scrollbar 연결
+canvas.configure(
+    xscrollcommand=x_scrollbar.set,
+    yscrollcommand=y_scrollbar.set
+)
+
+# 배치
+x_scrollbar.pack(side="bottom", fill="x")
+
+y_scrollbar.pack(side="right", fill="y")
+
+canvas.pack(
+    side="left",
+    fill="both",
+    expand=True
 )
 
 canvas.pack(fill="both", expand=True)
