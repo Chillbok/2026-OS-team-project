@@ -10,7 +10,7 @@ from FCFS import Process as FCFSProcess
 from RR import RR
 from RR import Process as RRProcess
 from SPN import SPN, Process as SPNProcess
-from SRTN import SRTN, Process as SRTNProcess
+from SRTN import run_srtn_scheduler as SRTN, Process as SRTNProcess
 
 
 root = tk.Tk()
@@ -111,20 +111,20 @@ def add_process():
     except ValueError:
         return
     
+    if len(process_data) >= 15:
+
+        messagebox.showerror(
+            "Error",
+            "Maximum 15 processes allowed."
+        )
+        return
+
     for process in process_data:
 
         if process["pid"] == pid:
             messagebox.showerror(
                 "Error",
                 "PID already exists."
-            )   
-            return
-
-        if len(process_data) >= 15:
-
-            messagebox.showerror(
-                "Error",
-                "Maximum 15 processes allowed."
             )
             return
         
@@ -402,6 +402,7 @@ def run_scheduler():
         tasks = [SRTNProcess(p["pid"], p["arrival"], p["burst"]) for p in process_data]
         p_count, e_count = get_core_counts()
         gantt, power = SRTN(tasks, p_count, e_count)
+        processes = tasks
 
     if gantt is not None:
 
