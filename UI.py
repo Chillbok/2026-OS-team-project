@@ -5,12 +5,36 @@ from FCFS import FCFS_multi_core, Process as FCFSProcess
 from RR import round_robin_multi_core, Process as RRProcess
 from SPN import SPN_multi_core, Process as SPNProcess
 from HRRN import HRRN, Process as HRRNProcess
+from SRTN import run_srtn_scheduler, Process as SRTNProcess
 
 root = tk.Tk()
 
 root.title("Process Scheduling Simulator")
 root.geometry("1400x800")
 process_data = []
+PID_COLORS = {
+
+    "1": "#FF8A80",
+    "2": "#FFD180",
+    "3": "#FFFF8D",
+    "4": "#CCFF90",
+    "5": "#A7FFEB",
+
+    "6": "#80D8FF",
+    "7": "#82B1FF",
+    "8": "#B388FF",
+    "9": "#F8BBD0",
+    "10": "#D7CCC8",
+
+    "11": "#DCEDC8",
+    "12": "#CFD8DC",
+    "13": "#FFAB91",
+    "14": "#B2DFDB",
+    "15": "#D1C4E9",
+
+    "idle": "#E0E0E0"
+}
+
 TASK_TYPES = [
     "EMERGENCY_BRAKE",
     "COLLISION_AVOID",
@@ -36,6 +60,30 @@ TASK_COLORS = {
 
     "idle": "#E0E0E0"
 }
+
+def update_task_type_state(event=None):
+
+    algorithm = algorithm_var.get()
+
+    # Auto Driving만 활성화
+    if algorithm == "Auto Driving":
+
+        task_type_combo.config(
+            state="readonly"
+        )
+
+        task_type_combo.set(
+            "INFOTAINMENT"
+        )
+
+    # 나머지는 비활성
+    else:
+
+        task_type_combo.set("")
+
+        task_type_combo.config(
+            state="disabled"
+        )
 
 # 상단 프레임
 top_frame = tk.Frame(root)
@@ -66,6 +114,10 @@ algorithm_combo = ttk.Combobox(
 
 algorithm_combo.current(0)
 algorithm_combo.pack(side="left", padx=5)
+algorithm_combo.bind(
+    "<<ComboboxSelected>>",
+    update_task_type_state
+)
 
 # RR Quantum
 tk.Label(
@@ -244,7 +296,7 @@ def clear_processes():
     for item in process_table.get_children():
         process_table.delete(item)
 
-def draw_gantt(gantt):
+def draw_gantt(gantt, algorithm):
     
 
     canvas.delete("all")  # 기존 내용 지우기
@@ -254,6 +306,29 @@ def draw_gantt(gantt):
 
     x_offset = 80
     y_offset = 10
+
+    min_start = 0
+
+    all_timelines = list(gantt.values())
+
+    while True:
+
+        removable = True
+
+        for timeline in all_timelines:
+
+            if min_start >= len(timeline):
+                removable = False
+                break
+
+            if timeline[min_start] != "idle":
+                removable = False
+                break
+
+        if removable:
+            min_start += 1
+        else:
+            break
 
     for row, (core_name, timeline) in enumerate(gantt.items()):
 
@@ -267,27 +342,35 @@ def draw_gantt(gantt):
             anchor="e"
         )
 
-        for col, pid in enumerate(timeline):
+        for col, pid in enumerate(timeline[min_start:]):
 
             x = x_offset + col * cell_width
 
-            if pid == "idle":
+            if str(pid) == "idle" or str(pid) == "0":
 
                 color = TASK_COLORS["idle"]
 
             else:
 
-                # process_data에서 task_type 찾기
-                task_type = "INFOTAINMENT"
+                if algorithm == "Auto Driving":
 
-                for p in process_data:
+                    task_type = "INFOTAINMENT"
 
-                    if p["pid"] == pid:
+                    for p in process_data:
 
-                        task_type = p["task_type"]
-                        break
+                        if str(p["pid"]) == str(pid):
 
-                color = TASK_COLORS[task_type]
+                            task_type = p["task_type"]
+                            break
+
+                    color = TASK_COLORS[task_type]
+
+                else:
+
+                    color = PID_COLORS.get(
+                        str(pid),
+                        "#FFFFFF"
+                    )
 
             # 박스
             canvas.create_rectangle(
@@ -309,7 +392,7 @@ def draw_gantt(gantt):
             canvas.create_text(
                 x,
                 y + cell_height + 5,
-                text=str(col),
+                text=str(col + min_start),
                 anchor="n"
             )
             canvas.config(
@@ -340,6 +423,10 @@ def run_scheduler():
     elif algorithm == "HRRN":
         tasks = [HRRNProcess(p["pid"], p["arrival"], p["burst"]) for p in process_data]
         processes, gantt, power = HRRN(tasks, p_count, e_count)
+    elif algorithm == "SRTN":
+        tasks = [SRTNProcess(p["pid"], p["arrival"], p["burst"]) for p in process_data]
+        gantt, power = run_srtn_scheduler(tasks, p_count, e_count)
+        processes = tasks
     else:
         messagebox.showinfo("Info", "알고리즘이 구현되지 않았습니다.")
         return
@@ -355,21 +442,21 @@ def run_scheduler():
     print("\n[Process Result]")
     for p in processes:
         tt = p.finish_time - p.arrival
-        wt = tt - p.burst
+        wt = p.start_time - p.arrival if hasattr(p, 'start_time') and p.start_time is not None else tt - p.burst
         ntt = tt / p.burst if p.burst > 0 else 0
         print(f"{p.pid} | WT={wt} | TT={tt} | NTT={ntt:.2f}")
 
     print(f"\nTotal Power: {power}")
     power_var.set(f"Total Power Consumption: {power}W")
     
-    draw_gantt(gantt)
+    draw_gantt(gantt, algorithm)
 
     for item in result_table.get_children():
         result_table.delete(item)
 
     for p in processes:
         tt = p.finish_time - p.arrival
-        wt = tt - p.burst
+        wt = p.start_time - p.arrival if hasattr(p, 'start_time') and p.start_time is not None else tt - p.burst
         ntt = tt / p.burst if p.burst > 0 else 0
         result_table.insert("", "end", values=(p.pid, wt, tt, f"{ntt:.2f}"))
             
@@ -548,5 +635,5 @@ canvas.pack(
 )
 
 canvas.pack(fill="both", expand=True)
-
+update_task_type_state()
 root.mainloop()
