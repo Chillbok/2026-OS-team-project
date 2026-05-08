@@ -1,25 +1,34 @@
 def is_emergency(task):
     # 안전과 직결되는 작업
-    return task.task_type in ["EMERGENCY_BRAKE", "COLLISION_AVOID"]
+    return task.task_type in ["EmergencyBrake"]
 
 
 def is_control(task):
     # 자율주행 제어 관련 작업
-    return task.task_type in ["STEERING", "LANE_KEEP"]
+    return task.task_type in ["ABSControl", "AirbagTrigger", "EngineControl", "Steering", "LaneKeep", "CollisionAvoidance"]
 
 # 우선순위를 두어 같은 작업 내의 선점 막기
 PRIORITY = {
     # EMERGENCY
-    "EMERGENCY_BRAKE": 0,
-    "COLLISION_AVOID": 1,
+    "EmergencyBrake": 1,
 
     # CONTROL
-    "STEERING": 2,
-    "LANE_KEEP": 3,
+    "ABSControl": 1,
+    "AirbagTrigger": 1,
+    "EngineControl" : 1,
+    "Steering": 2,
+    "LaneKeep": 2,
+    "CollisionAvoidance": 3,
 
     # NORMAL
-    "CRUISE_CONTROL": 4,
-    "INFOTAINMENT": 5,
+    "TirePressureMonitor": 4,
+    "BatteryMonitor": 4,
+    "CoolantTempMonitor": 4,
+    "OBDDiagnostics": 4,
+    "GPSNavigation": 4,
+    "DashcamRecording": 4,
+    "AirConditioning": 4,
+    "Infotainment": 4
 }
 
 class Process:
@@ -150,39 +159,27 @@ def scheduler(processes,  p_count, e_count):
                     emergency_q.remove(best)
                     core.current = best
                     if best.start_time is None:
-                        best.start_time = time  
+                        best.start_time = time
 
-                elif control_q:
+            elif core.role == "CONTROL":
+                
+                if control_q:
                     best = min(control_q, key=lambda x: x.priority)
                     control_q.remove(best)
                     core.current = best
                     if best.start_time is None:
                         best.start_time = time  
 
-            elif core.role == "CONTROL": # 제어 코어는 긴급, 제어, 일반 작업 순으로 작업처리
-                if emergency_q:
-                    best = min(emergency_q, key=lambda x: x.priority)
-                    emergency_q.remove(best)
-                    core.current = best
-                    if best.start_time is None:
-                        best.start_time = time  
-
-                elif control_q:
+            elif core.role == "NORMAL": # 일반 코어는 제어, 일반 작업 순으로 작업처리
+                
+                if control_q:
                     best = min(control_q, key=lambda x: x.priority)
                     control_q.remove(best)
                     core.current = best
                     if best.start_time is None:
-                        best.start_time = time  
+                        best.start_time = time
 
                 elif normal_q:
-                    best = min(normal_q, key=lambda x: x.priority)
-                    normal_q.remove(best)
-                    core.current = best
-                    if best.start_time is None:
-                        best.start_time = time  
-
-            elif core.role == "NORMAL":
-                if normal_q:
                     best = min(normal_q, key=lambda x: x.priority)
                     normal_q.remove(best)
                     core.current = best

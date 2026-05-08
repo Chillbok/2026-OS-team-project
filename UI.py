@@ -43,28 +43,39 @@ PID_COLORS = {
 }
 
 TASK_TYPES = [
-    "EMERGENCY_BRAKE",
-    "COLLISION_AVOID",
-    "STEERING",
-    "LANE_KEEP",
-    "CRUISE_CONTROL",
-    "INFOTAINMENT"
+    "EmergencyBrake",
+    "ABSControl",
+    "AirbagTrigger",
+    "EngineControl",
+    "Steering",
+    "LaneKeep",
+    "CollisionAvoidance",
+    "TirePressureMonitor",
+    "BatteryMonitor",
+    "CoolantTempMonitor",
+    "OBDDiagnostics",
+    "GPSNavigation",
+    "DashcamRecording",
+    "AirConditioning",
+    "Infotainment"
 ]
 
 TASK_COLORS = {
-
-    "EMERGENCY_BRAKE": "#FF5252",
-
-    "COLLISION_AVOID": "#FF9800",
-
-    "STEERING": "#42A5F5",
-
-    "LANE_KEEP": "#81D4FA",
-
-    "CRUISE_CONTROL": "#66BB6A",
-
-    "INFOTAINMENT": "#BA68C8",
-
+    "EmergencyBrake": "#E53935",
+    "ABSControl": "#FB8C00",
+    "AirbagTrigger": "#D81B60",
+    "EngineControl": "#1E88E5",
+    "Steering": "#00897B",
+    "LaneKeep": "#43A047",
+    "CollisionAvoidance": "#8E24AA",
+    "TirePressureMonitor": "#3949AB",
+    "BatteryMonitor": "#6D4C41",
+    "CoolantTempMonitor": "#00ACC1",
+    "OBDDiagnostics": "#757575",
+    "GPSNavigation": "#C0CA33",
+    "DashcamRecording": "#5E35B1",
+    "AirConditioning": "#00BCD4",
+    "Infotainment": "#F4511E",
     "idle": "#E0E0E0"
 }
 
