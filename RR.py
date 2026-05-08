@@ -6,6 +6,7 @@ class Process:
         self.arrival = arrival
         self.burst = burst
         self.remaining = burst
+        self.start_time = None
         self.finish_time = 0
 
 
@@ -95,6 +96,8 @@ def round_robin_multi_core(processes, quantum, p_count, e_count):
                 core.time_slice = 0
 
             if core.current:
+                if core.current.start_time is None:
+                    core.current.start_time = time
                 if core.was_idle:
                     total_power += core.wake_power
                 total_power += core.run_power
@@ -122,7 +125,7 @@ def round_robin_multi_core(processes, quantum, p_count, e_count):
                     core.current = None
 
             else:
-                gantt[core.name].append(0)
+                gantt[core.name].append("idle")
                 core.was_idle = True
 
         time += 1

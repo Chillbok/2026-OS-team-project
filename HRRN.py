@@ -3,7 +3,8 @@ class Process:
         self.pid = pid  # process ID
         self.arrival = arrival # arrival time
         self.burst = burst # burst time
-        self.start_time = 0 
+        self.remaining = burst
+        self.start_time = None 
         self.finish_time = 0 
 class Core:
     def __init__(
@@ -102,10 +103,10 @@ def HRRN(processes, p_count, e_count):
                     # 성능 반영
                     core.remaining_work = best.burst
 
-                    best.start_time = time
-
             # 실행
             if core.current:
+                if core.current.start_time is None:
+                    core.current.start_time = time
 
                 # 시동전력
                 if core.was_idle:
@@ -132,7 +133,7 @@ def HRRN(processes, p_count, e_count):
 
             else:
 
-                gantt[core.name].append("0")
+                gantt[core.name].append("idle")
 
                 core.was_idle = True
 

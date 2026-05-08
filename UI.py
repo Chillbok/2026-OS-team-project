@@ -1,8 +1,10 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
-from OS_project import Process
-from OS_project import scheduler
+from FCFS import FCFS_multi_core, Process as FCFSProcess
+from RR import round_robin_multi_core, Process as RRProcess
+from SPN import SPN_multi_core, Process as SPNProcess
+from HRRN import HRRN, Process as HRRNProcess
 
 root = tk.Tk()
 
@@ -315,92 +317,61 @@ def draw_gantt(gantt):
             )
 
 def run_scheduler():
-
     algorithm = algorithm_var.get()
+    
+    p_count = sum(1 for v in core_vars if v.get() == "P")
+    e_count = sum(1 for v in core_vars if v.get() == "E")
 
-    tasks = []
+    quantum = 3
+    try:
+        quantum = int(quantum_entry.get())
+    except:
+        pass
 
-    # Process 객체 변환
-    for p in process_data:
+    if algorithm == "FCFS":
+        tasks = [FCFSProcess(p["pid"], p["arrival"], p["burst"]) for p in process_data]
+        processes, gantt, power = FCFS_multi_core(tasks, p_count, e_count)
+    elif algorithm == "RR":
+        tasks = [RRProcess(p["pid"], p["arrival"], p["burst"]) for p in process_data]
+        processes, gantt, power = round_robin_multi_core(tasks, quantum, p_count, e_count)
+    elif algorithm == "SPN":
+        tasks = [SPNProcess(p["pid"], p["arrival"], p["burst"]) for p in process_data]
+        processes, gantt, power = SPN_multi_core(tasks, p_count, e_count)
+    elif algorithm == "HRRN":
+        tasks = [HRRNProcess(p["pid"], p["arrival"], p["burst"]) for p in process_data]
+        processes, gantt, power = HRRN(tasks, p_count, e_count)
+    else:
+        messagebox.showinfo("Info", "알고리즘이 구현되지 않았습니다.")
+        return
 
-        tasks.append(
-            Process(
-                p["pid"],
-                p["arrival"],
-                p["burst"],
-                p["task_type"]                
-            )
-        )
+    print("\n========== RESULT ==========")
+    print("\n[Gantt Chart]")
+    for core, timeline in gantt.items():
+        print(f"{core}: ", end="")
+        for t in timeline:
+            print(f"|{t}", end="")
+        print("|")
 
-    print("Selected Algorithm:", algorithm)
+    print("\n[Process Result]")
+    for p in processes:
+        tt = p.finish_time - p.arrival
+        wt = tt - p.burst
+        ntt = tt / p.burst if p.burst > 0 else 0
+        print(f"{p.pid} | WT={wt} | TT={tt} | NTT={ntt:.2f}")
 
-    print("Tasks:")
+    print(f"\nTotal Power: {power}")
+    power_var.set(f"Total Power Consumption: {power}W")
+    
+    draw_gantt(gantt)
 
-    for task in tasks:
+    for item in result_table.get_children():
+        result_table.delete(item)
 
-        print(
-            task.pid,
-            task.arrival,
-            task.burst
-        )
-    if algorithm == "Auto Driving":
-
-        gantt, processes, power = scheduler(tasks)
-
-        print("\n========== RESULT ==========")
-
-        print("\n[Gantt Chart]")
-
-        for core, timeline in gantt.items():
-
-            print(f"{core}: ", end="")
-
-            for t in timeline:
-                print(f"|{t}", end="")
-
-            print("|")
-
-        print("\n[Process Result]")
-
-        for p in processes:
-
-            tt = p.finish_time - p.arrival
-            wt = tt - p.burst
-            ntt = tt / p.burst
-
-            print(
-                f"{p.pid} | WT={wt} "
-                f"| TT={tt} "
-                f"| NTT={ntt:.2f}"
-            )
-
-        print(f"\nTotal Power: {power}")
-        power_var.set(
-            f"Total Power Consumption: {power}W"
-        )
-        draw_gantt(gantt)
-
-        # 기존 결과 제거
-        for item in result_table.get_children():
-            result_table.delete(item)
-
-        # 결과 추가
-        for p in processes:
-
-            tt = p.finish_time - p.arrival
-            wt = tt - p.burst
-            ntt = tt / p.burst
-
-            result_table.insert(
-                "",
-                "end",
-                values=(
-                    p.pid,
-                    wt,
-                    tt,
-                    f"{ntt:.2f}"
-                )
-            )
+    for p in processes:
+        tt = p.finish_time - p.arrival
+        wt = tt - p.burst
+        ntt = tt / p.burst if p.burst > 0 else 0
+        result_table.insert("", "end", values=(p.pid, wt, tt, f"{ntt:.2f}"))
             
 # 우측 패널
 
@@ -454,6 +425,7 @@ core_frame = tk.LabelFrame(
 
 core_frame.pack(fill="x")
 
+core_vars = []
 for i in range(4):
 
     core_box = tk.LabelFrame(
@@ -466,6 +438,7 @@ for i in range(4):
     core_box.pack(side="left", padx=5, pady=5)
 
     core_type = tk.StringVar(value="P")
+    core_vars.append(core_type)
 
     tk.Radiobutton(
         core_box,
