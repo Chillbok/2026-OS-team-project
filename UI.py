@@ -293,21 +293,45 @@ def draw_gantt(gantt, algorithm):
                 scrollregion=canvas.bbox("all")
             )
 
-def get_core_counts():
 
+def calculate_metrics(processes, gantt):
+
+    results = []
+
+    for p in processes:
+
+        actual_burst = 0
+        for timeline in gantt.values():
+            for t in timeline:
+                if str(t) == str(p.pid):
+                    actual_burst += 1
+
+        # 예외 처리
+        if actual_burst == 0:
+            actual_burst = p.burst
+
+        tt = p.finish_time - p.arrival
+        wt = tt - actual_burst
+
+        if wt < 0:
+            wt = 0
+        ntt = tt / actual_burst if actual_burst > 0 else 0
+        results.append({
+            "pid": p.pid,
+            "wt": wt,
+            "tt": tt,
+            "ntt": ntt
+        })
+    return results
+
+def get_core_counts():
     p_count = 0
     e_count = 0
-
     for core in core_vars:
-
         if core.get() == "P":
-
             p_count += 1
-
         else:
-
             e_count += 1
-
     return p_count, e_count
 
 def run_scheduler():
@@ -417,87 +441,48 @@ def run_scheduler():
 
     if gantt is not None:
 
+        metrics = calculate_metrics(
+            processes,
+            gantt
+        )
         print("\n========== RESULT ==========")
-
         print("\n[Gantt Chart]")
 
         for core, timeline in gantt.items():
-
             print(f"{core}: ", end="")
-
             for t in timeline:
-
                 print(f"|{t}", end="")
-
             print("|")
 
         print("\n[Process Result]")
-
-        for p in processes:
-            actual_burst = 0 # 실제 실행 시간(Tick)을 저장할 변수 초기화
-        
-        # 1. Gantt 차트의 모든 코어(P, E) 타임라인을 전부 뒤집니다.
-            for timeline in gantt.values():
-                for t in timeline:
-                # 2. 현재 프로세스의 PID와 일치하는 기록(칸)이 있으면 카운트 증가
-                    if str(t) == str(p.pid):
-                        actual_burst += 1
-                    
-        # (예외 처리: 간트 차트에 기록이 없는 치명적 오류 등 대비용 초기화)
-            if actual_burst == 0:
-                actual_burst = p.burst
-
-        # 결과 출력 (터미널 및 UI 테이블)
-            tt = p.finish_time - p.arrival
-            wt = tt - actual_burst
-            ntt = tt / actual_burst if actual_burst > 0 else 0
-
+        # metrics 출력
+        for m in metrics:
             print(
-                f"{p.pid} | WT={wt} "
-                f"| TT={tt} "
-                f"| NTT={ntt:.2f}"
+                f"{m['pid']} | "
+                f"WT={m['wt']} | "
+                f"TT={m['tt']} | "
+                f"NTT={m['ntt']:.2f}"
             )
 
         print(f"\nTotal Power: {power}")
-
         power_var.set(
             f"전체 사용 전력: {power}W"
         )
 
         draw_gantt(gantt, algorithm)
-
+        # 기존 테이블 제거
         for item in result_table.get_children():
-
             result_table.delete(item)
-
-        for p in processes:
-
-            actual_burst = 0 # 실제 실행 시간(Tick)을 저장할 변수 초기화
-        
-        # 1. Gantt 차트의 모든 코어(P, E) 타임라인을 전부 뒤집니다.
-            for timeline in gantt.values():
-                for t in timeline:
-                # 2. 현재 프로세스의 PID와 일치하는 기록(칸)이 있으면 카운트 증가
-                    if str(t) == str(p.pid):
-                        actual_burst += 1
-                    
-        # (예외 처리: 간트 차트에 기록이 없는 치명적 오류 등 대비용 초기화)
-            if actual_burst == 0:
-                actual_burst = p.burst
-
-        # 결과 출력 (터미널 및 UI 테이블)
-            tt = p.finish_time - p.arrival
-            wt = tt - actual_burst
-            ntt = tt / actual_burst if actual_burst > 0 else 0
-
+        # metrics 기반 테이블 추가
+        for m in metrics:
             result_table.insert(
                 "",
                 "end",
                 values=(
-                    p.pid,
-                    wt,
-                    tt,
-                    f"{ntt:.2f}"
+                    m["pid"],
+                    m["wt"],
+                    m["tt"],
+                    f"{m['ntt']:.2f}"
                 )
             )
 

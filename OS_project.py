@@ -117,31 +117,54 @@ def scheduler(processes,  p_count, e_count):
                     control_q.append(p)
                 else:
                     normal_q.append(p)
+        # 전체 대기 작업 중 가장 우선순위 높은 작업 선택
+        candidates = (
+            emergency_q +
+            control_q +
+            normal_q
+        )
 
-        for core in cores:
-            if not core.current:
-                continue
+        if candidates:
 
-            candidates = []
-            candidates.extend(emergency_q)
-            candidates.extend(control_q)
-            candidates.extend(normal_q)
+            incoming = min(
+                candidates,
+                key=lambda x: (x.priority, x.arrival)
+            )
 
-            if not candidates:
-                continue
+            preempt_core = None
 
-            best = min(candidates, key=lambda x: (x.priority, x.arrival))
+            # 선점 가능한 코어 탐색
+            for core in cores:
 
-            # 더 높은 priority일 때만 선점
-            if preempt(core.current, best):
-                if is_emergency(core.current):
-                    emergency_q.append(core.current)
-                elif is_control(core.current):
-                    control_q.append(core.current)
+                if core.current is None:
+                    continue
+
+                if preempt(core.current, incoming):
+
+                    # 가장 낮은 우선순위 작업 실행 중인 코어 선택
+                    if (
+                        preempt_core is None or
+                        core.current.priority >
+                        preempt_core.current.priority
+                    ):
+                        preempt_core = core
+
+            # 실제 선점 수행
+            if preempt_core:
+
+                old = preempt_core.current
+
+                # 기존 작업 다시 큐로 반환
+                if is_emergency(old):
+                    emergency_q.append(old)
+
+                elif is_control(old):
+                    control_q.append(old)
+
                 else:
-                    normal_q.append(core.current)
+                    normal_q.append(old)
 
-                core.current = None
+                preempt_core.current = None
 
         # 작업 할당
         for core in cores: 
